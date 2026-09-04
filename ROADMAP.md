@@ -1,39 +1,77 @@
 # NovaOS Roadmap
 
-## M0 — Foundation
+Each milestone requires a reproducible acceptance test and a written review before the next milestone begins.
 
-Build system, cross-compilation discipline, QEMU, Git, boot image, serial diagnostics, documentation, and smoke test.
+## Completed foundation
 
-## M1 — Kernel
+### M0 — Repository and build foundation
 
-CPU initialization, interrupts, timer, physical and virtual memory, kernel console, and fault reporting.
+Build system, freestanding cross-compilation discipline, QEMU, Git, GRUB boot image, serial diagnostics, documentation, CI, and smoke tests.
 
-## M2 — Processes
+### M1 — Kernel architecture
 
-Scheduler, threads, address spaces, syscalls, executable loading, and user mode.
+GDT, IDT, exception stubs, PIC remapping, PIT timer interrupts, and structured kernel diagnostics.
 
-## M3 — Storage and userspace
+### M2 — Bootstrap memory
 
-Filesystem, VFS, files, directories, init, shell, and core utilities.
+Multiboot memory discovery, page-aligned bootstrap allocation, and memory diagnostics.
 
-## M4 — Hardware
+### M3 — Process foundation
 
-Keyboard, mouse, display, storage, and initial network device support in QEMU.
+Process table, PID allocation, current-process tracking, and syscall dispatcher scaffolding.
 
-## M5 — Desktop
+### M4 — Userspace ABI foundation
 
-Window manager, desktop shell, settings, file manager, launcher, notifications, and terminal application.
+Executable metadata validation, scheduler-ready process context, user-stack constants, and software syscall entry validation.
 
-## M6 — Applications and security
+### M5 — In-memory VFS
 
-Application runtime, package manager, manifests, permissions, sandbox, capabilities, and firewall policy.
+Safe absolute paths, directories, files, bounded reads/writes, and kernel VFS self-tests.
 
-## M7 — Reliability and ecosystem
+### M6 — Block storage
 
-Nova Vault, encryption, signed updates, snapshots, rollback, recovery, backups, SDK, and developer tools.
+ATA PIO sector reads and writes, deterministic QEMU disk-image creation, and storage round-trip validation.
 
-## M8 — Polish
+### M7 — Persistent filesystem mount
 
-Accessibility, themes, multi-monitor support, performance, animations, documentation refinement, and portfolio demonstrations.
+Versioned superblock, metadata validation, checksummed format fields, QEMU image formatter, and mounted-storage validation.
 
-Each milestone requires an acceptance test and a written review before the next milestone begins.
+### M8 — Persistent VFS nodes
+
+Checksummed on-disk node records, persistent `/etc/motd` content, mounted path lookup, invalid-path rejection, and persistent node-table validation.
+
+## Next core milestones
+
+### M9 — User-facing storage syscalls
+
+Per-process file descriptors, validated `open`, `read`, `write`, `close`, and directory operations, with stable error codes, ownership checks, and capability boundaries.
+
+### M10 — User mode and scheduler
+
+User-pointer validation, ring-3 transition, scheduler context switching, process address spaces, timer-driven scheduling, and a real `init` entry path.
+
+### M11 — Shell and core utilities
+
+Userspace shell, executable loading from persistent storage, process lifecycle commands, and core file utilities.
+
+### M12 — Persistent filesystem mutation
+
+On-disk file creation, directory updates, free-space tracking, atomic metadata updates, checksums, and reboot persistence tests.
+
+## Later product milestones
+
+### M13 — Hardware and networking
+
+Keyboard, display, Ethernet, sockets, DNS, and a conservative initial driver set in QEMU.
+
+### M14 — Desktop shell
+
+Window manager, compositor, launcher, settings, file manager, terminal, notifications, accessibility, and multi-monitor support.
+
+### M15 — Applications and security services
+
+Application manifests, package manager, sandbox permissions, capabilities, firewall policy, Nova Vault, signed updates, recovery, rollback, and backups.
+
+### M16 — Ecosystem and polish
+
+SDK, developer tools, documentation refinement, performance, themes, animations, and portfolio demonstrations.

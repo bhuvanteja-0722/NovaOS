@@ -46,8 +46,14 @@ $(BUILD_DIR)/storage.o: kernel/storage.c | $(BUILD_DIR)
 $(BUILD_DIR)/persistent_fs.o: kernel/persistent_fs.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o linker.ld
-	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o
+$(BUILD_DIR)/syscalls.o: kernel/syscalls.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+$(BUILD_DIR)/scheduler.o: kernel/scheduler.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/scheduler.o linker.ld
+	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/scheduler.o
 	grub-file --is-x86-multiboot $(KERNEL)
 
 iso: kernel boot/grub.cfg
@@ -67,9 +73,9 @@ smoke: iso disk
 	log_file=$$(mktemp); \
 	(timeout 8s qemu-system-i386 -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
 	cat $$log_file; \
-	grep -q 'NOVAOS_M8_PERSISTENT_VFS_OK' $$log_file; \
+	grep -q 'NOVAOS_M10_SCHEDULER_OK' $$log_file; \
 	rm -f $$log_file; \
-	echo 'NovaOS M8 persistent VFS smoke test passed.'
+	echo 'NovaOS M10 scheduler smoke test passed.'
 
 clean:
 	rm -rf $(BUILD_DIR)

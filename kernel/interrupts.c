@@ -45,6 +45,7 @@ extern void idt_load(uint32_t descriptor);
 extern void irq0_stub(void);
 extern void exception_stub(void);
 extern void syscall_stub(void);
+extern void scheduler_tick(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -133,6 +134,7 @@ uint32_t syscall_entry_count(void) {
 
 void timer_interrupt_handler(void) {
     ++timer_ticks;
+    scheduler_tick();
     outb(PIC1, 0x20);
 }
 

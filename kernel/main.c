@@ -31,6 +31,17 @@ extern uint32_t persistent_fs_is_mounted(void);
 extern uint32_t persistent_fs_generation(void);
 extern uint32_t persistent_fs_lookup(const char *path);
 extern int32_t persistent_fs_read_file(uint32_t node_id, void *buffer, uint32_t length, uint32_t offset);
+extern void syscalls_init(void);
+extern int32_t nova_sys_open(const char *path);
+extern int32_t nova_sys_read(uint32_t fd, void *buffer, uint32_t length);
+extern int32_t nova_sys_close(uint32_t fd);
+extern uint32_t nova_sys_fd_is_open(uint32_t fd);
+extern void scheduler_init(void);
+extern uint32_t scheduler_add(uint32_t pid);
+extern void scheduler_tick(void);
+extern uint32_t scheduler_current_pid(void);
+extern uint32_t scheduler_count(void);
+extern uint32_t scheduler_quantum(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -261,6 +272,41 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     }
     serial_write("[ OK ] ATA disk sector read/write validated\n");
     serial_write("NOVAOS_M8_PERSISTENT_VFS_OK\n");
+
+    syscalls_init();
+    char syscall_motd[17];
+    int32_t motd_fd = nova_sys_open("/etc/motd");
+    if (motd_fd < 0 || nova_sys_read((uint32_t)motd_fd, syscall_motd, sizeof(syscall_motd)) != (int32_t)sizeof(syscall_motd) ||
+        nova_sys_fd_is_open((uint32_t)motd_fd) == 0 || nova_sys_close((uint32_t)motd_fd) != 0 ||
+        nova_sys_close((uint32_t)motd_fd) != -9 || nova_sys_read(99, syscall_motd, 1) != -9) {
+        serial_write("ERROR: storage syscall self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Open/read/close storage syscalls validated\n");
+    serial_write("NOVAOS_M9_SYSCALLS_OK\n");
+
+    scheduler_init();
+    uint32_t worker_pid = process_create("worker", init_pid);
+    if (scheduler_add(init_pid) == 0 || scheduler_add(worker_pid) == 0 || scheduler_count() != 2 ||
+        scheduler_current_pid() != init_pid) {
+        serial_write("ERROR: scheduler queue self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    for (uint32_t index = 0; index < scheduler_quantum(); ++index) {
+        scheduler_tick();
+    }
+    if (scheduler_current_pid() != worker_pid) {
+        serial_write("ERROR: scheduler rotation self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Round-robin scheduler rotation validated\n");
+    serial_write("NOVAOS_M10_SCHEDULER_OK\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

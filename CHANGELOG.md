@@ -14,6 +14,8 @@ All notable changes to NovaOS will be documented here.
 - M6 ATA PIO block-device foundation with deterministic QEMU disk image creation and sector read/write validation.
 - M7 versioned persistent filesystem superblock, metadata validation, QEMU image formatter, and mounted-storage smoke test.
 - M8 checksummed persistent VFS nodes, mounted `/etc/motd` content, invalid-path rejection, and persistent node-table validation.
+- M9 bounded storage syscalls for `open`, `read`, and `close`, per-process-style descriptors, and stable negative error codes.
+- M10 scheduler-ready round-robin queue with timer-driven tick integration and rotation self-test.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

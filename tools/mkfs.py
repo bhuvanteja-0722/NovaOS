@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create a deterministic NovaOS M7 filesystem image."""
+"""Create a deterministic NovaOS M8 persistent VFS image."""
 from pathlib import Path
 import struct
 import sys

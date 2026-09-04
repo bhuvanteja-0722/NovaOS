@@ -57,6 +57,14 @@ extern uint32_t paging_is_prepared(void);
 extern uint32_t paging_enable(void);
 extern uint32_t paging_is_enabled(void);
 extern uint32_t paging_directory_address(void);
+extern void process_spaces_init(void);
+extern uint32_t process_space_create(uint32_t pid);
+extern uint32_t process_space_validate(uint32_t space_id, uint32_t pid);
+extern uint32_t process_space_count(void);
+extern uint32_t process_set_address_space(uint32_t pid, uint32_t space_id);
+extern uint32_t process_address_space(uint32_t pid);
+extern uint32_t process_terminate(uint32_t pid);
+extern uint32_t process_is_alive(uint32_t pid);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -322,6 +330,28 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     }
     serial_write("[ OK ] Round-robin scheduler rotation validated\n");
     serial_write("NOVAOS_M10_SCHEDULER_OK\n");
+
+    process_spaces_init();
+    uint32_t init_space = process_space_create(init_pid);
+    uint32_t worker_space = process_space_create(worker_pid);
+    if (init_space == 0 || worker_space == 0 || init_space == worker_space || process_space_count() != 2 ||
+        process_space_validate(init_space, init_pid) == 0 || process_space_validate(worker_space, worker_pid) == 0 ||
+        process_space_validate(init_space, worker_pid) != 0 || process_set_address_space(init_pid, init_space) == 0 ||
+        process_set_address_space(worker_pid, worker_space) == 0 || process_address_space(init_pid) != init_space ||
+        process_address_space(worker_pid) != worker_space) {
+        serial_write("ERROR: process address-space ownership test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Process-specific address-space ownership validated\n");
+    if (process_terminate(0) != 0 || process_terminate(init_pid) != 0 || process_is_alive(init_pid) == 0 || process_is_alive(worker_pid) == 0) {
+        serial_write("ERROR: guarded process termination test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Init protection and process termination guards validated\n");
 
     paging_init();
     if (paging_is_prepared() == 0 || paging_validate_layout() == 0 || paging_is_enabled() != 0 || paging_directory_address() == 0) {

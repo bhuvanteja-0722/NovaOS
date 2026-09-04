@@ -78,6 +78,50 @@ uint32_t process_load_image(uint32_t pid, const struct nova_exec_header *header)
     return 0;
 }
 
+uint32_t process_set_address_space(uint32_t pid, uint32_t space_id) {
+    if (space_id == 0) {
+        return 0;
+    }
+    for (uint32_t index = 0; index < process_total; ++index) {
+        if (process_table[index].pid == pid) {
+            process_table[index].address_space = space_id;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+uint32_t process_address_space(uint32_t pid) {
+    for (uint32_t index = 0; index < process_total; ++index) {
+        if (process_table[index].pid == pid) {
+            return process_table[index].address_space;
+        }
+    }
+    return 0;
+}
+
+uint32_t process_terminate(uint32_t pid) {
+    if (pid == 0 || pid == 1) {
+        return 0;
+    }
+    for (uint32_t index = 0; index < process_total; ++index) {
+        if (process_table[index].pid == pid && process_table[index].state != 0) {
+            process_table[index].state = 0;
+            return 1;
+        }
+    }
+    return 0;
+}
+
+uint32_t process_is_alive(uint32_t pid) {
+    for (uint32_t index = 0; index < process_total; ++index) {
+        if (process_table[index].pid == pid) {
+            return process_table[index].state != 0;
+        }
+    }
+    return 0;
+}
+
 uint32_t process_count(void) {
     return process_total;
 }

@@ -16,7 +16,7 @@ All notable changes to NovaOS will be documented here.
 - M8 checksummed persistent VFS nodes, mounted `/etc/motd` content, invalid-path rejection, and persistent node-table validation.
 - M9 bounded storage syscalls for `open`, `read`, and `close`, per-process-style descriptors, and stable negative error codes.
 - M10 scheduler-ready round-robin queue with timer-driven tick integration and rotation self-test.
-- M10 page-range address-space metadata, overflow-safe user-pointer validation, guarded user-mode selector readiness contract, corrected ring-3 GDT code/data descriptors, fail-closed transition guard until a complete user process is ready, validated identity page-table layout, and controlled CR3/CR0 paging activation.
+- M10 page-range address-space metadata, process-specific address-space ownership, guarded process termination, overflow-safe user-pointer validation, guarded user-mode selector readiness contract, corrected ring-3 GDT code/data descriptors, fail-closed transition guard until a complete user process is ready, validated identity page-table layout, and controlled CR3/CR0 paging activation.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

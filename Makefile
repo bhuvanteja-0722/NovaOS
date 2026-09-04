@@ -61,8 +61,11 @@ $(BUILD_DIR)/user_mode.o: kernel/user_mode.c | $(BUILD_DIR)
 $(BUILD_DIR)/paging.o: kernel/paging.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/scheduler.o $(BUILD_DIR)/address_space.o $(BUILD_DIR)/user_mode.o $(BUILD_DIR)/paging.o linker.ld
-	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/scheduler.o $(BUILD_DIR)/address_space.o $(BUILD_DIR)/user_mode.o $(BUILD_DIR)/paging.o
+$(BUILD_DIR)/process_space.o: kernel/process_space.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/scheduler.o $(BUILD_DIR)/address_space.o $(BUILD_DIR)/user_mode.o $(BUILD_DIR)/paging.o $(BUILD_DIR)/process_space.o linker.ld
+	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o $(BUILD_DIR)/persistent_fs.o $(BUILD_DIR)/syscalls.o $(BUILD_DIR)/scheduler.o $(BUILD_DIR)/address_space.o $(BUILD_DIR)/user_mode.o $(BUILD_DIR)/paging.o $(BUILD_DIR)/process_space.o
 	grub-file --is-x86-multiboot $(KERNEL)
 
 iso: kernel boot/grub.cfg

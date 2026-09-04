@@ -50,6 +50,7 @@ extern uint32_t user_mode_prepare(void);
 extern uint32_t user_mode_is_ready(void);
 extern uint32_t user_mode_code_selector(void);
 extern uint32_t user_mode_data_selector(void);
+extern uint32_t user_mode_transition_enabled(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -325,7 +326,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         address_space_validate_user(0x00400000u, 0x100u, 1) != 0 ||
         address_space_validate_user(0xBFFFFFF0u, 0x100u, 0) != 0 ||
         user_mode_prepare() == 0 || user_mode_is_ready() == 0 ||
-        user_mode_code_selector() != 0x1Bu || user_mode_data_selector() != 0x23u) {
+        user_mode_code_selector() != 0x1Bu || user_mode_data_selector() != 0x23u || user_mode_transition_enabled() != 0) {
         serial_write("ERROR: address-space and user-mode readiness test failed\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
@@ -333,6 +334,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     }
     serial_write("[ OK ] Mapped user ranges and pointer validation validated\n");
     serial_write("[ OK ] User-mode transition contract prepared\n");
+    serial_write("[ OK ] Ring-3 transition remains fail-closed until paging is active\n");
     serial_write("NOVAOS_M10_USERMODE_READY\n");
 
     for (;;) {

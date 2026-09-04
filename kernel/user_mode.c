@@ -6,9 +6,11 @@
 extern uint32_t address_space_range_count(void);
 
 static uint32_t ready;
+static uint32_t paging_active;
 
 void user_mode_init(void) {
     ready = 0;
+    paging_active = 0;
 }
 
 uint32_t user_mode_prepare(void) {
@@ -21,6 +23,10 @@ uint32_t user_mode_prepare(void) {
 
 uint32_t user_mode_is_ready(void) {
     return ready;
+}
+
+uint32_t user_mode_transition_enabled(void) {
+    return ready != 0 && paging_active != 0;
 }
 
 uint32_t user_mode_code_selector(void) {

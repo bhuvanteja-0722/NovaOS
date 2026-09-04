@@ -33,7 +33,7 @@ struct idt_ptr {
     uint32_t base;
 } __attribute__((packed));
 
-static struct gdt_entry gdt[3];
+static struct gdt_entry gdt[5];
 static struct gdt_ptr gdt_descriptor;
 static struct idt_entry idt[256];
 static struct idt_ptr idt_descriptor;
@@ -73,6 +73,8 @@ static void gdt_init(void) {
     set_gdt_entry(0, 0, 0, 0, 0);
     set_gdt_entry(1, 0, 0xFFFFFFFF, 0x9A, 0xCF);
     set_gdt_entry(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
+    set_gdt_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);
+    set_gdt_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
     gdt_flush((uint32_t)&gdt_descriptor);
 }
 

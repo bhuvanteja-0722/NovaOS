@@ -63,4 +63,4 @@ tools/         Build and developer tooling
 docs/          Technical documentation
 ```
 
-See [BUILDING.md](BUILDING.md), [ARCHITECTURE.md](ARCHITECTURE.md), and [ROADMAP.md](ROADMAP.md) for more detail.
+See [BUILDING.md](BUILDING.md), [ARCHITECTURE.md](ARCHITECTURE.md), [SECURITY_AUDIT.md](SECURITY_AUDIT.md), and [ROADMAP.md](ROADMAP.md) for more detail.

@@ -1,0 +1,35 @@
+name: NovaOS CodeQL
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyze:
+    name: Analyze
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: c-cpp
+          build-mode: manual
+
+      - name: Build NovaOS
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential gcc binutils nasm qemu-system-x86 grub-pc grub-pc-bin grub-common xorriso mtools
+          make kernel
+
+      - name: Perform CodeQL analysis
+        uses: github/codeql-action/analyze@v3

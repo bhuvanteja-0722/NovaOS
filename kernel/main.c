@@ -2,6 +2,14 @@
 
 #define COM1 0x3F8
 
+extern void arch_init(void);
+extern uint32_t timer_get_ticks(void);
+extern void memory_init(uint32_t multiboot_info_address);
+extern uint32_t memory_allocator_start(void);
+extern uint32_t memory_allocator_used(void);
+extern uint32_t memory_upper_kib_get(void);
+extern void *memory_alloc_page(void);
+
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
 }
@@ -37,8 +45,23 @@ static void serial_write(const char *text) {
     }
 }
 
+static void serial_write_u32(uint32_t value) {
+    char digits[10];
+    int count = 0;
+    if (value == 0) {
+        serial_write_char('0');
+        return;
+    }
+    while (value != 0) {
+        digits[count++] = (char)('0' + (value % 10));
+        value /= 10;
+    }
+    while (count > 0) {
+        serial_write_char(digits[--count]);
+    }
+}
+
 void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
-    (void)multiboot_info;
     serial_init();
     serial_write("NovaOS kernel starting...\n");
 
@@ -52,7 +75,39 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Multiboot handoff verified\n");
     serial_write("[ OK ] Bootstrap stack initialized\n");
     serial_write("[ OK ] Serial diagnostics online\n");
-    serial_write("NOVAOS_PHASE0_BOOT_OK\n");
+
+    arch_init();
+    serial_write("[ OK ] GDT loaded\n");
+    serial_write("[ OK ] IDT loaded and PIC remapped\n");
+    serial_write("[ OK ] PIT configured at 100 Hz\n");
+
+    memory_init(multiboot_info);
+    serial_write("[ OK ] Physical memory allocator initialized at 0x");
+    serial_write_u32(memory_allocator_start());
+    serial_write("\n");
+    serial_write("[ OK ] Multiboot upper memory KiB: ");
+    serial_write_u32(memory_upper_kib_get());
+    serial_write("\n");
+    if (memory_alloc_page() == (void *)0) {
+        serial_write("ERROR: bootstrap page allocation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] First physical page allocated; bytes used: ");
+    serial_write_u32(memory_allocator_used());
+    serial_write("\n");
+
+    __asm__ volatile ("sti");
+    for (volatile uint32_t wait = 0; wait < 30000000; ++wait) {
+        __asm__ volatile ("pause");
+    }
+    __asm__ volatile ("cli");
+
+    serial_write("[ OK ] Timer interrupts observed: ");
+    serial_write_u32(timer_get_ticks());
+    serial_write(" ticks\n");
+    serial_write("NOVAOS_M2_MEMORY_OK\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

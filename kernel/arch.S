@@ -30,6 +30,14 @@ irq0_stub:
     popa
     iret
 
+.global syscall_stub
+.type syscall_stub, @function
+syscall_stub:
+    pusha
+    call syscall_interrupt_handler
+    popa
+    iret
+
 .global exception_stub
 .type exception_stub, @function
 exception_stub:

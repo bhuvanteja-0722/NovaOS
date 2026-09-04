@@ -38,11 +38,13 @@ static struct gdt_ptr gdt_descriptor;
 static struct idt_entry idt[256];
 static struct idt_ptr idt_descriptor;
 static volatile uint32_t timer_ticks;
+static volatile uint32_t syscall_entries;
 
 extern void gdt_flush(uint32_t descriptor);
 extern void idt_load(uint32_t descriptor);
 extern void irq0_stub(void);
 extern void exception_stub(void);
+extern void syscall_stub(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -103,6 +105,7 @@ static void idt_init(void) {
         idt_set_gate((uint8_t)i, (uint32_t)exception_stub, 0x08, 0x8E);
     }
     idt_set_gate(32, (uint32_t)irq0_stub, 0x08, 0x8E);
+    idt_set_gate(0x80, (uint32_t)syscall_stub, 0x08, 0xEE);
     pic_remap();
     idt_load((uint32_t)&idt_descriptor);
 }
@@ -118,6 +121,14 @@ void arch_init(void) {
     gdt_init();
     idt_init();
     pit_init();
+}
+
+void syscall_interrupt_handler(void) {
+    ++syscall_entries;
+}
+
+uint32_t syscall_entry_count(void) {
+    return syscall_entries;
 }
 
 void timer_interrupt_handler(void) {

@@ -21,7 +21,7 @@ $(BUILD_DIR):
 $(BUILD_DIR)/boot.o: boot/boot.S | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-$(BUILD_DIR)/main.o: kernel/main.c | $(BUILD_DIR)
+$(BUILD_DIR)/main.o: kernel/main.c kernel/abi.h | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 $(BUILD_DIR)/arch.o: kernel/arch.S | $(BUILD_DIR)
@@ -54,9 +54,9 @@ smoke: iso
 	log_file=$$(mktemp); \
 	(timeout 8s qemu-system-i386 -cdrom $(ISO) -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
 	cat $$log_file; \
-	grep -q 'NOVAOS_M3_PROCESS_OK' $$log_file; \
+	grep -q 'NOVAOS_M4_USERSPACE_OK' $$log_file; \
 	rm -f $$log_file; \
-	echo 'NovaOS M3 process smoke test passed.'
+	echo 'NovaOS M4 userspace smoke test passed.'
 
 clean:
 	rm -rf $(BUILD_DIR)

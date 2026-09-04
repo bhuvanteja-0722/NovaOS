@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "abi.h"
 
 #define COM1 0x3F8
 
@@ -14,6 +15,9 @@ extern uint32_t process_create(const char *name, uint32_t parent_pid);
 extern uint32_t process_count(void);
 extern uint32_t process_current_pid(void);
 extern uint32_t syscall_dispatch(uint32_t syscall_number, uint32_t argument0);
+extern uint32_t process_load_image(uint32_t pid, const struct nova_exec_header *header);
+extern uint32_t process_entry_point(uint32_t pid);
+extern uint32_t syscall_entry_count(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -123,8 +127,31 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
             __asm__ volatile ("cli; hlt");
         }
     }
-    serial_write("[ OK ] Syscall dispatcher self-test passed\n");
-    serial_write("NOVAOS_M3_PROCESS_OK\n");
+    struct nova_exec_header init_image = {
+        .magic = NOVA_EXEC_MAGIC,
+        .version = NOVA_EXEC_VERSION,
+        .entry_point = NOVA_USER_BASE,
+        .image_size = 4096,
+        .flags = 0
+    };
+    if (process_load_image(init_pid, &init_image) == 0 || process_entry_point(init_pid) != NOVA_USER_BASE) {
+        serial_write("ERROR: init executable validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Init executable metadata validated\n");
+
+    uint32_t syscall_count_before = syscall_entry_count();
+    __asm__ volatile ("int $0x80");
+    if (syscall_entry_count() != syscall_count_before + 1) {
+        serial_write("ERROR: syscall entry validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Software syscall entry validated\n");
+    serial_write("NOVAOS_M4_USERSPACE_OK\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

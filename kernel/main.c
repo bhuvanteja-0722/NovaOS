@@ -70,6 +70,11 @@ extern uint32_t user_probe_entry(void);
 extern uint32_t user_probe_stack(void);
 extern uint32_t user_probe_size(void);
 extern uint32_t user_probe_validate(void);
+extern void user_transition_init(void);
+extern uint32_t user_probe_map(void);
+extern uint32_t user_probe_build_frame(uint32_t entry_point, uint32_t user_stack);
+extern uint32_t user_probe_frame_validate(uint32_t entry_point, uint32_t user_stack);
+extern uint32_t user_transition_enabled(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -367,6 +372,16 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     }
     serial_write("[ OK ] User probe image and stack context validated\n");
     serial_write("[ OK ] Ring-3 entry remains disabled until the probe is mapped\n");
+    user_transition_init();
+    if (user_probe_map() == 0 || user_probe_build_frame(user_probe_entry(), user_probe_stack()) == 0 ||
+        user_probe_frame_validate(user_probe_entry(), user_probe_stack()) == 0 || user_transition_enabled() != 0) {
+        serial_write("ERROR: protected user transition frame test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] User probe mapping and iret frame validated\n");
+    serial_write("[ OK ] User transition remains fail-closed until iret path is enabled\n");
 
     paging_init();
     if (paging_is_prepared() == 0 || paging_validate_layout() == 0 || paging_is_enabled() != 0 || paging_directory_address() == 0) {
@@ -403,7 +418,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Ring-3 transition remains disabled until a complete user process is ready\n");
     serial_write("[ OK ] User-mode transition contract prepared\n");
     serial_write("[ OK ] Ring-3 transition remains fail-closed until a complete user process is ready\n");
-    serial_write("NOVAOS_M11_USER_PROBE_READY\n");
+    serial_write("NOVAOS_M11_TRANSITION_READY\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

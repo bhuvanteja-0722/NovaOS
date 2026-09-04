@@ -17,7 +17,7 @@ All notable changes to NovaOS will be documented here.
 - M9 bounded storage syscalls for `open`, `read`, and `close`, per-process-style descriptors, and stable negative error codes.
 - M10 scheduler-ready round-robin queue with timer-driven tick integration and rotation self-test.
 - M10 page-range address-space metadata, process-specific address-space ownership, guarded process termination, overflow-safe user-pointer validation, guarded user-mode selector readiness contract, corrected ring-3 GDT code/data descriptors, fail-closed transition guard until a complete user process is ready, validated identity page-table layout, and controlled CR3/CR0 paging activation.
-- M11 fixed built-in user-probe image, validated user entry/stack context, and fail-closed probe readiness checks; ring-3 entry remains disabled until actual mapped user memory and a tested iret return path exist.
+- M11 fixed built-in user-probe image, validated user entry/stack context, process-specific ownership, guarded termination, protected probe mapping, validated ring-3 iret frame, and fail-closed transition checks; ring-3 entry remains disabled until actual mapped user execution and a tested return path exist.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

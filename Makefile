@@ -44,7 +44,7 @@ iso: kernel boot/grub.cfg
 	mkdir -p $(ISO_DIR)/boot/grub
 	cp $(KERNEL) $(ISO_DIR)/boot/novaos.kernel
 	cp boot/grub.cfg $(ISO_DIR)/boot/grub/grub.cfg
-	grub-mkrescue -o $(ISO) $(ISO_DIR) >/dev/null 2>&1
+	grub-mkrescue -o $(ISO) $(ISO_DIR)
 
 run: iso
 	qemu-system-i386 -cdrom $(ISO) -serial stdio -display none -no-reboot -no-shutdown

@@ -67,9 +67,9 @@ smoke: iso disk
 	log_file=$$(mktemp); \
 	(timeout 8s qemu-system-i386 -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
 	cat $$log_file; \
-	grep -q 'NOVAOS_M7_PERSISTENT_FS_OK' $$log_file; \
+	grep -q 'NOVAOS_M8_PERSISTENT_VFS_OK' $$log_file; \
 	rm -f $$log_file; \
-	echo 'NovaOS M7 persistent filesystem smoke test passed.'
+	echo 'NovaOS M8 persistent VFS smoke test passed.'
 
 clean:
 	rm -rf $(BUILD_DIR)

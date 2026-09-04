@@ -13,6 +13,7 @@ All notable changes to NovaOS will be documented here.
 - M5 bounded in-memory VFS with safe absolute paths, directories, files, bounded reads/writes, and kernel self-tests.
 - M6 ATA PIO block-device foundation with deterministic QEMU disk image creation and sector read/write validation.
 - M7 versioned persistent filesystem superblock, metadata validation, QEMU image formatter, and mounted-storage smoke test.
+- M8 checksummed persistent VFS nodes, mounted `/etc/motd` content, invalid-path rejection, and persistent node-table validation.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

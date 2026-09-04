@@ -29,6 +29,8 @@ extern uint32_t storage_write_sector(uint32_t lba, const void *buffer);
 extern uint32_t persistent_fs_mount(void);
 extern uint32_t persistent_fs_is_mounted(void);
 extern uint32_t persistent_fs_generation(void);
+extern uint32_t persistent_fs_lookup(const char *path);
+extern int32_t persistent_fs_read_file(uint32_t node_id, void *buffer, uint32_t length, uint32_t offset);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -205,6 +207,31 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Persistent filesystem superblock mounted\n");
+    uint32_t motd_node = persistent_fs_lookup("/etc/motd");
+    char persisted_motd[sizeof("Welcome to NovaOS") - 1];
+    int32_t persisted_read = persistent_fs_read_file(motd_node, persisted_motd, sizeof(persisted_motd), 0);
+    if (motd_node == 0 || persistent_fs_lookup("/etc/missing") != 0 || persisted_read != (int32_t)sizeof(persisted_motd)) {
+        serial_write("ERROR: persistent VFS node validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    static const char expected_motd[] = "Welcome to NovaOS";
+    for (uint32_t index = 0; index < sizeof(expected_motd) - 1; ++index) {
+        if (persisted_motd[index] != expected_motd[index]) {
+            serial_write("[ DBG ] MOTD mismatch at index ");
+            serial_write_u32(index);
+            serial_write(", actual: ");
+            serial_write_u32((uint32_t)(uint8_t)persisted_motd[index]);
+            serial_write(", expected: ");
+            serial_write_u32((uint32_t)(uint8_t)expected_motd[index]);
+            serial_write("\nERROR: persistent VFS file content mismatch\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+    }
+    serial_write("[ OK ] Persistent VFS nodes and file content loaded\n");
 
     uint8_t disk_sector[512];
     uint8_t disk_roundtrip[512];
@@ -233,7 +260,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] ATA disk sector read/write validated\n");
-    serial_write("NOVAOS_M7_PERSISTENT_FS_OK\n");
+    serial_write("NOVAOS_M8_PERSISTENT_VFS_OK\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

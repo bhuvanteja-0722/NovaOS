@@ -1,6 +1,8 @@
 #include <stdint.h>
 #include "abi.h"
 
+extern void nova_iret_enter(uint32_t *frame_address);
+
 #define NOVA_USER_CODE_SELECTOR 0x1Bu
 #define NOVA_USER_DATA_SELECTOR 0x23u
 #define NOVA_EFLAGS_IF 0x202u
@@ -49,7 +51,11 @@ uint32_t user_probe_frame_validate(uint32_t entry_point, uint32_t user_stack) {
            frame.ss == (NOVA_USER_DATA_SELECTOR | 3u);
 }
 
+uint32_t user_transition_iret_path_present(void) {
+    return (uint32_t)(uintptr_t)&nova_iret_enter != 0u;
+}
+
 uint32_t user_transition_enabled(void) {
-    /* Deliberately fail closed until a page-backed probe and iret return path exist. */
+    /* Deliberately fail closed until TSS-backed entry and a safe return path exist. */
     return 0;
 }

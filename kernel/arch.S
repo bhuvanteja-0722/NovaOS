@@ -46,4 +46,16 @@ exception_stub:
     popa
     iret
 
+/*
+ * Enter ring 3 from a caller that supplies a validated iret frame.
+ * The frame layout is EIP, CS, EFLAGS, user ESP, SS.
+ * This symbol remains unused until TSS-backed kernel-stack switching
+ * and a tested return/termination path are installed.
+ */
+.global nova_iret_enter
+.type nova_iret_enter, @function
+nova_iret_enter:
+    mov 4(%esp), %esp
+    iret
+
 .section .note.GNU-stack,"",@progbits

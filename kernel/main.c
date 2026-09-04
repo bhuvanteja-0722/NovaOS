@@ -75,6 +75,7 @@ extern void user_transition_init(void);
 extern uint32_t user_probe_map(void);
 extern uint32_t user_probe_build_frame(uint32_t entry_point, uint32_t user_stack);
 extern uint32_t user_probe_frame_validate(uint32_t entry_point, uint32_t user_stack);
+extern uint32_t user_transition_iret_path_present(void);
 extern uint32_t user_transition_enabled(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
@@ -375,14 +376,16 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Ring-3 entry remains disabled until the probe is mapped\n");
     user_transition_init();
     if (user_probe_copy_to_user_page() == 0 || user_probe_map() == 0 || user_probe_build_frame(user_probe_entry(), user_probe_stack()) == 0 ||
-        user_probe_frame_validate(user_probe_entry(), user_probe_stack()) == 0 || user_transition_enabled() != 0) {
+        user_probe_frame_validate(user_probe_entry(), user_probe_stack()) == 0 || user_transition_iret_path_present() == 0 ||
+        user_transition_enabled() != 0) {
         serial_write("ERROR: protected user transition frame test failed\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
         }
     }
     serial_write("[ OK ] User probe bytes copied and iret frame validated\n");
-    serial_write("[ OK ] User transition remains fail-closed until iret path is enabled\n");
+    serial_write("[ OK ] Dedicated iret entry path linked and validated as unreachable\n");
+    serial_write("[ OK ] User transition remains fail-closed until TSS and return path are enabled\n");
 
     paging_init();
     if (paging_is_prepared() == 0 || paging_validate_layout() == 0 || paging_is_enabled() != 0 || paging_directory_address() == 0) {

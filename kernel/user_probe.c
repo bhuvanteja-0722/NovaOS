@@ -2,7 +2,7 @@
 #include "abi.h"
 
 #define NOVA_PROBE_ENTRY 0x00400000u
-#define NOVA_PROBE_STACK 0xBFFFE000u
+#define NOVA_PROBE_STACK 0x00801000u
 #define NOVA_PROBE_MAX_SIZE 4096u
 
 static const uint8_t probe_image[] = {

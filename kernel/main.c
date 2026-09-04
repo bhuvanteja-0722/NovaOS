@@ -9,6 +9,11 @@ extern uint32_t memory_allocator_start(void);
 extern uint32_t memory_allocator_used(void);
 extern uint32_t memory_upper_kib_get(void);
 extern void *memory_alloc_page(void);
+extern void process_init(void);
+extern uint32_t process_create(const char *name, uint32_t parent_pid);
+extern uint32_t process_count(void);
+extern uint32_t process_current_pid(void);
+extern uint32_t syscall_dispatch(uint32_t syscall_number, uint32_t argument0);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -107,7 +112,19 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Timer interrupts observed: ");
     serial_write_u32(timer_get_ticks());
     serial_write(" ticks\n");
-    serial_write("NOVAOS_M2_MEMORY_OK\n");
+    process_init();
+    uint32_t init_pid = process_create("init", 0);
+    serial_write("[ OK ] Process table initialized; init PID: ");
+    serial_write_u32(init_pid);
+    serial_write("\n");
+    if (process_count() != 1 || process_current_pid() != init_pid || syscall_dispatch(1, 0) != init_pid) {
+        serial_write("ERROR: process/syscall self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Syscall dispatcher self-test passed\n");
+    serial_write("NOVAOS_M3_PROCESS_OK\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

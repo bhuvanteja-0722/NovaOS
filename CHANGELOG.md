@@ -8,6 +8,7 @@ All notable changes to NovaOS will be documented here.
 
 - M1 kernel architecture layer with GDT, IDT, PIC remapping, PIT timer interrupts, and exception stubs.
 - M2 bootstrap physical-memory allocator using Multiboot memory information.
+- M3 process table and syscall dispatcher scaffolding with kernel self-tests.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

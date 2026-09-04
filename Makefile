@@ -33,8 +33,11 @@ $(BUILD_DIR)/interrupts.o: kernel/interrupts.c | $(BUILD_DIR)
 $(BUILD_DIR)/memory.o: kernel/memory.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o linker.ld
-	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o
+$(BUILD_DIR)/process.o: kernel/process.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o linker.ld
+	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o
 	grub-file --is-x86-multiboot $(KERNEL)
 
 iso: kernel boot/grub.cfg
@@ -51,9 +54,9 @@ smoke: iso
 	log_file=$$(mktemp); \
 	(timeout 8s qemu-system-i386 -cdrom $(ISO) -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
 	cat $$log_file; \
-	grep -q 'NOVAOS_M2_MEMORY_OK' $$log_file; \
+	grep -q 'NOVAOS_M3_PROCESS_OK' $$log_file; \
 	rm -f $$log_file; \
-	echo 'NovaOS M2 memory smoke test passed.'
+	echo 'NovaOS M3 process smoke test passed.'
 
 clean:
 	rm -rf $(BUILD_DIR)

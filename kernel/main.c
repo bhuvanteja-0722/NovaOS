@@ -51,6 +51,11 @@ extern uint32_t user_mode_is_ready(void);
 extern uint32_t user_mode_code_selector(void);
 extern uint32_t user_mode_data_selector(void);
 extern uint32_t user_mode_transition_enabled(void);
+extern void paging_init(void);
+extern uint32_t paging_validate_layout(void);
+extern uint32_t paging_is_prepared(void);
+extern uint32_t paging_is_enabled(void);
+extern uint32_t paging_directory_address(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -317,6 +322,15 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Round-robin scheduler rotation validated\n");
     serial_write("NOVAOS_M10_SCHEDULER_OK\n");
 
+    paging_init();
+    if (paging_is_prepared() == 0 || paging_validate_layout() == 0 || paging_is_enabled() != 0 || paging_directory_address() == 0) {
+        serial_write("ERROR: paging layout self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Identity page tables and user permissions validated\n");
+
     address_space_init();
     user_mode_init();
     if (address_space_map_user(0x00400000u, 0x1000u, 0) == 0 ||
@@ -333,9 +347,10 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Mapped user ranges and pointer validation validated\n");
+    serial_write("[ OK ] Paging remains disabled until a real address space is activated\n");
     serial_write("[ OK ] User-mode transition contract prepared\n");
     serial_write("[ OK ] Ring-3 transition remains fail-closed until paging is active\n");
-    serial_write("NOVAOS_M10_USERMODE_READY\n");
+    serial_write("NOVAOS_M10_PAGING_READY\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

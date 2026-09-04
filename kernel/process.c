@@ -100,6 +100,25 @@ uint32_t process_address_space(uint32_t pid) {
     return 0;
 }
 
+uint32_t process_configure_user_context(uint32_t pid, uint32_t entry_point, uint32_t user_stack) {
+    if (entry_point < NOVA_USER_BASE || user_stack != NOVA_USER_STACK_TOP ||
+        (entry_point % 4096u) != 0 || (user_stack % 4096u) != 0) {
+        return 0;
+    }
+    for (uint32_t index = 0; index < process_total; ++index) {
+        if (process_table[index].pid == pid && process_table[index].state != 0) {
+            process_table[index].entry_point = entry_point;
+            process_table[index].user_stack = user_stack;
+            process_table[index].context.eip = entry_point;
+            process_table[index].context.user_esp = user_stack;
+            process_table[index].context.user_ss = 0x23;
+            process_table[index].state = 2;
+            return 1;
+        }
+    }
+    return 0;
+}
+
 uint32_t process_terminate(uint32_t pid) {
     if (pid == 0 || pid == 1) {
         return 0;

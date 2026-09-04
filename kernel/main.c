@@ -65,6 +65,11 @@ extern uint32_t process_set_address_space(uint32_t pid, uint32_t space_id);
 extern uint32_t process_address_space(uint32_t pid);
 extern uint32_t process_terminate(uint32_t pid);
 extern uint32_t process_is_alive(uint32_t pid);
+extern uint32_t process_configure_user_context(uint32_t pid, uint32_t entry_point, uint32_t user_stack);
+extern uint32_t user_probe_entry(void);
+extern uint32_t user_probe_stack(void);
+extern uint32_t user_probe_size(void);
+extern uint32_t user_probe_validate(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -352,6 +357,16 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Init protection and process termination guards validated\n");
+    if (user_probe_validate() == 0 || user_probe_size() > 4096u ||
+        process_configure_user_context(init_pid, user_probe_entry(), user_probe_stack()) == 0 ||
+        process_entry_point(init_pid) != user_probe_entry()) {
+        serial_write("ERROR: user probe context validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] User probe image and stack context validated\n");
+    serial_write("[ OK ] Ring-3 entry remains disabled until the probe is mapped\n");
 
     paging_init();
     if (paging_is_prepared() == 0 || paging_validate_layout() == 0 || paging_is_enabled() != 0 || paging_directory_address() == 0) {
@@ -388,7 +403,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Ring-3 transition remains disabled until a complete user process is ready\n");
     serial_write("[ OK ] User-mode transition contract prepared\n");
     serial_write("[ OK ] Ring-3 transition remains fail-closed until a complete user process is ready\n");
-    serial_write("NOVAOS_M10_PAGING_READY\n");
+    serial_write("NOVAOS_M11_USER_PROBE_READY\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

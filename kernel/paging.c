@@ -46,6 +46,19 @@ uint32_t paging_validate_layout(void) {
     return 1;
 }
 
+uint32_t paging_enable(void) {
+    uint32_t control_register0;
+    if (!prepared || enabled) {
+        return enabled;
+    }
+    __asm__ volatile ("mov %0, %%cr3" : : "r"((uint32_t)&page_directory[0]) : "memory");
+    __asm__ volatile ("mov %%cr0, %0" : "=r"(control_register0));
+    control_register0 |= 0x80000000u;
+    __asm__ volatile ("mov %0, %%cr0" : : "r"(control_register0) : "memory");
+    enabled = 1;
+    return enabled;
+}
+
 uint32_t paging_is_prepared(void) { return prepared; }
 uint32_t paging_is_enabled(void) { return enabled; }
 uint32_t paging_directory_address(void) { return (uint32_t)&page_directory[0]; }

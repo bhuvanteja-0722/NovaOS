@@ -54,6 +54,7 @@ extern uint32_t user_mode_transition_enabled(void);
 extern void paging_init(void);
 extern uint32_t paging_validate_layout(void);
 extern uint32_t paging_is_prepared(void);
+extern uint32_t paging_enable(void);
 extern uint32_t paging_is_enabled(void);
 extern uint32_t paging_directory_address(void);
 
@@ -330,6 +331,13 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Identity page tables and user permissions validated\n");
+    if (paging_enable() == 0 || paging_is_enabled() == 0) {
+        serial_write("ERROR: controlled paging activation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Controlled CR3/CR0 paging activation validated\n");
 
     address_space_init();
     user_mode_init();
@@ -347,9 +355,9 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Mapped user ranges and pointer validation validated\n");
-    serial_write("[ OK ] Paging remains disabled until a real address space is activated\n");
+    serial_write("[ OK ] Ring-3 transition remains disabled until a complete user process is ready\n");
     serial_write("[ OK ] User-mode transition contract prepared\n");
-    serial_write("[ OK ] Ring-3 transition remains fail-closed until paging is active\n");
+    serial_write("[ OK ] Ring-3 transition remains fail-closed until a complete user process is ready\n");
     serial_write("NOVAOS_M10_PAGING_READY\n");
 
     for (;;) {

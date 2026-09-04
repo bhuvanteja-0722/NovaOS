@@ -18,6 +18,12 @@ extern uint32_t syscall_dispatch(uint32_t syscall_number, uint32_t argument0);
 extern uint32_t process_load_image(uint32_t pid, const struct nova_exec_header *header);
 extern uint32_t process_entry_point(uint32_t pid);
 extern uint32_t syscall_entry_count(void);
+extern void fs_init(void);
+extern uint32_t fs_mkdir(const char *path);
+extern uint32_t fs_create(const char *path);
+extern uint32_t fs_exists(const char *path);
+extern int32_t fs_write(const char *path, const void *buffer, uint32_t length, uint32_t offset);
+extern int32_t fs_read(const char *path, void *buffer, uint32_t length, uint32_t offset);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -152,6 +158,40 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     }
     serial_write("[ OK ] Software syscall entry validated\n");
     serial_write("NOVAOS_M4_USERSPACE_OK\n");
+
+    fs_init();
+    if (fs_mkdir("/etc") == 0 || fs_create("/etc/motd") == 0 ||
+        fs_exists("/etc/motd") == 0) {
+        serial_write("ERROR: VFS node self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    static const char motd[] = "Welcome to NovaOS";
+    char motd_readback[sizeof(motd)];
+    if (fs_write("/etc/motd", motd, sizeof(motd), 0) != (int32_t)sizeof(motd) ||
+        fs_read("/etc/motd", motd_readback, sizeof(motd_readback), 0) != (int32_t)sizeof(motd_readback)) {
+        serial_write("ERROR: VFS file I/O self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    for (uint32_t index = 0; index < sizeof(motd); ++index) {
+        if (motd_readback[index] != motd[index]) {
+            serial_write("ERROR: VFS readback mismatch\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+    }
+    if (fs_write("/etc/motd", motd, 1, 512) >= 0 || fs_read("/missing", motd_readback, 1, 0) >= 0) {
+        serial_write("ERROR: VFS bounds self-test failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] VFS paths, directories, and bounded file I/O validated\n");
+    serial_write("NOVAOS_M5_VFS_OK\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

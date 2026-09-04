@@ -10,6 +10,7 @@ All notable changes to NovaOS will be documented here.
 - M2 bootstrap physical-memory allocator using Multiboot memory information.
 - M3 process table and syscall dispatcher scaffolding with kernel self-tests.
 - M4 userspace ABI, executable metadata validation, scheduler-ready process context, and software syscall entry validation.
+- M5 bounded in-memory VFS with safe absolute paths, directories, files, bounded reads/writes, and kernel self-tests.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

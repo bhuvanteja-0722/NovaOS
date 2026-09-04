@@ -1,0 +1,8 @@
+build/
+*.o
+*.iso
+*.kernel
+*.log
+.vscode/
+.idea/
+.DS_Store

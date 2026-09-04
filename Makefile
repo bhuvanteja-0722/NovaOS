@@ -3,6 +3,7 @@ BUILD_DIR := build
 ISO_DIR := $(BUILD_DIR)/isofiles
 KERNEL := $(BUILD_DIR)/$(PROJECT).kernel
 ISO := $(BUILD_DIR)/$(PROJECT).iso
+DISK := $(BUILD_DIR)/$(PROJECT).disk
 
 CC := gcc
 LD := ld
@@ -11,7 +12,7 @@ OBJCOPY := objcopy
 CFLAGS := -m32 -std=c11 -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -Wall -Wextra -Werror -O2
 LDFLAGS := -m elf_i386 -T linker.ld -nostdlib
 
-.PHONY: all kernel iso run smoke clean format
+.PHONY: all kernel iso disk run smoke clean format
 
 all: iso
 
@@ -39,8 +40,11 @@ $(BUILD_DIR)/process.o: kernel/process.c kernel/abi.h | $(BUILD_DIR)
 $(BUILD_DIR)/fs.o: kernel/fs.c | $(BUILD_DIR)
 	$(CC) $(CFLAGS) -c $< -o $@
 
-kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o linker.ld
-	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o
+$(BUILD_DIR)/storage.o: kernel/storage.c | $(BUILD_DIR)
+	$(CC) $(CFLAGS) -c $< -o $@
+
+kernel: $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o linker.ld
+	$(LD) $(LDFLAGS) -o $(KERNEL) $(BUILD_DIR)/boot.o $(BUILD_DIR)/main.o $(BUILD_DIR)/arch.o $(BUILD_DIR)/interrupts.o $(BUILD_DIR)/memory.o $(BUILD_DIR)/process.o $(BUILD_DIR)/fs.o $(BUILD_DIR)/storage.o
 	grub-file --is-x86-multiboot $(KERNEL)
 
 iso: kernel boot/grub.cfg
@@ -49,17 +53,21 @@ iso: kernel boot/grub.cfg
 	cp boot/grub.cfg $(ISO_DIR)/boot/grub/grub.cfg
 	grub-mkrescue -o $(ISO) $(ISO_DIR)
 
-run: iso
-	qemu-system-i386 -cdrom $(ISO) -serial stdio -display none -no-reboot -no-shutdown
+disk: | $(BUILD_DIR)
+	dd if=/dev/zero of=$(DISK) bs=1M count=8 status=none
+	printf 'NOVAOS-DISK-V1' | dd of=$(DISK) bs=1 conv=notrunc status=none
 
-smoke: iso
+run: iso disk
+	qemu-system-i386 -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide -serial stdio -display none -no-reboot -no-shutdown
+
+smoke: iso disk
 	@set -eu; \
 	log_file=$$(mktemp); \
-	(timeout 8s qemu-system-i386 -cdrom $(ISO) -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
+	(timeout 8s qemu-system-i386 -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
 	cat $$log_file; \
-	grep -q 'NOVAOS_M5_VFS_OK' $$log_file; \
+	grep -q 'NOVAOS_M6_STORAGE_OK' $$log_file; \
 	rm -f $$log_file; \
-	echo 'NovaOS M5 VFS smoke test passed.'
+	echo 'NovaOS M6 storage smoke test passed.'
 
 clean:
 	rm -rf $(BUILD_DIR)

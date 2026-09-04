@@ -24,6 +24,8 @@ extern uint32_t fs_create(const char *path);
 extern uint32_t fs_exists(const char *path);
 extern int32_t fs_write(const char *path, const void *buffer, uint32_t length, uint32_t offset);
 extern int32_t fs_read(const char *path, void *buffer, uint32_t length, uint32_t offset);
+extern uint32_t storage_read_sector(uint32_t lba, void *buffer);
+extern uint32_t storage_write_sector(uint32_t lba, const void *buffer);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -192,6 +194,35 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     }
     serial_write("[ OK ] VFS paths, directories, and bounded file I/O validated\n");
     serial_write("NOVAOS_M5_VFS_OK\n");
+
+    uint8_t disk_sector[512];
+    uint8_t disk_roundtrip[512];
+    if (storage_read_sector(0, disk_sector) == 0 || disk_sector[0] != 'N' ||
+        disk_sector[1] != 'O' || disk_sector[2] != 'V' || disk_sector[3] != 'A') {
+        serial_write("ERROR: disk read or disk signature validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    for (uint32_t index = 0; index < sizeof(disk_sector); ++index) {
+        disk_sector[index] = (uint8_t)(index ^ 0xA5u);
+    }
+    if (storage_write_sector(1, disk_sector) == 0 || storage_read_sector(1, disk_roundtrip) == 0) {
+        serial_write("ERROR: disk sector round-trip failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    for (uint32_t index = 0; index < sizeof(disk_sector); ++index) {
+        if (disk_sector[index] != disk_roundtrip[index]) {
+            serial_write("ERROR: disk sector verification failed\n");
+            for (;;) {
+                __asm__ volatile ("cli; hlt");
+            }
+        }
+    }
+    serial_write("[ OK ] ATA disk sector read/write validated\n");
+    serial_write("NOVAOS_M6_STORAGE_OK\n");
 
     for (;;) {
         __asm__ volatile ("hlt");

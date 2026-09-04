@@ -12,6 +12,7 @@ All notable changes to NovaOS will be documented here.
 - M4 userspace ABI, executable metadata validation, scheduler-ready process context, and software syscall entry validation.
 - M5 bounded in-memory VFS with safe absolute paths, directories, files, bounded reads/writes, and kernel self-tests.
 - M6 ATA PIO block-device foundation with deterministic QEMU disk image creation and sector read/write validation.
+- M7 versioned persistent filesystem superblock, metadata validation, QEMU image formatter, and mounted-storage smoke test.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

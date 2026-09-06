@@ -47,6 +47,15 @@ syscall_stub:
     push %edx
     call syscall_interrupt_handler
     add $8, %esp
+    call syscall_exit_should_terminate
+    test %eax, %eax
+    jz .syscall_return
+    lea 32(%esp), %edx
+    push %edx
+    call syscall_termination_trampoline
+.syscall_halt:
+    jmp .syscall_halt
+.syscall_return:
     popa
     iret
 

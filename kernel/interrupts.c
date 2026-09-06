@@ -92,6 +92,8 @@ extern void irq0_stub(void);
 extern void exception_stub(void);
 extern void syscall_stub(void);
 extern void scheduler_tick(void);
+extern uint32_t process_current_pid(void);
+extern uint32_t process_terminate(uint32_t pid);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -187,16 +189,35 @@ void arch_init(void) {
     pit_init();
 }
 
+uint32_t syscall_user_frame_valid(const struct nova_interrupt_frame *frame) {
+    return frame != (const struct nova_interrupt_frame *)0 && frame->cs == 0x1Bu &&
+           frame->ss == 0x23u && frame->eip >= NOVA_USER_BASE && frame->eip < 0x00C00000u;
+}
+
 void syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t syscall_number) {
     ++syscall_entries;
-    if (frame == (struct nova_interrupt_frame *)0 || frame->cs != 0x1Bu ||
-        frame->ss != 0x23u || frame->eip < NOVA_USER_BASE || frame->eip >= 0x00C00000u) {
+    if (syscall_user_frame_valid(frame) == 0) {
         return;
     }
     user_frame_captured = 1;
     last_user_eip = frame->eip;
     if (syscall_number == NOVA_SYSCALL_EXIT) {
         syscall_exit_requested = 1;
+    }
+}
+
+uint32_t syscall_exit_should_terminate(void) {
+    uint32_t requested = syscall_exit_requested;
+    syscall_exit_requested = 0;
+    return requested;
+}
+
+__attribute__((noreturn)) void syscall_termination_trampoline(const struct nova_interrupt_frame *frame) {
+    if (syscall_user_frame_valid(frame) != 0) {
+        (void)process_terminate(process_current_pid());
+    }
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
     }
 }
 

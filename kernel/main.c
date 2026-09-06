@@ -21,6 +21,7 @@ extern uint32_t process_entry_point(uint32_t pid);
 extern uint32_t syscall_entry_count(void);
 extern uint32_t syscall_user_frame_captured(void);
 extern uint32_t syscall_exit_is_requested(void);
+extern uint32_t syscall_exit_should_terminate(void);
 extern uint32_t syscall_last_user_eip(void);
 extern void syscall_interrupt_handler(const void *frame, uint32_t syscall_number);
 extern void fs_init(void);
@@ -242,7 +243,8 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     };
     syscall_interrupt_handler(&synthetic_user_frame, NOVA_SYSCALL_EXIT);
     if (syscall_user_frame_captured() == 0 || syscall_exit_is_requested() == 0 ||
-        syscall_last_user_eip() != NOVA_USER_BASE + 2u) {
+        syscall_last_user_eip() != NOVA_USER_BASE + 2u || syscall_exit_should_terminate() == 0 ||
+        syscall_exit_should_terminate() != 0) {
         serial_write("ERROR: guarded user syscall return decision failed\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");

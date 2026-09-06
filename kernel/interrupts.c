@@ -33,14 +33,48 @@ struct idt_ptr {
     uint32_t base;
 } __attribute__((packed));
 
-static struct gdt_entry gdt[5];
+struct nova_tss {
+    uint32_t prev_tss;
+    uint32_t esp0;
+    uint32_t ss0;
+    uint32_t esp1;
+    uint32_t ss1;
+    uint32_t esp2;
+    uint32_t ss2;
+    uint32_t cr3;
+    uint32_t eip;
+    uint32_t eflags;
+    uint32_t eax;
+    uint32_t ecx;
+    uint32_t edx;
+    uint32_t ebx;
+    uint32_t esp;
+    uint32_t ebp;
+    uint32_t esi;
+    uint32_t edi;
+    uint32_t es;
+    uint32_t cs;
+    uint32_t ss;
+    uint32_t ds;
+    uint32_t fs;
+    uint32_t gs;
+    uint32_t ldt;
+    uint16_t trap;
+    uint16_t iomap_base;
+} __attribute__((packed));
+
+static struct gdt_entry gdt[6];
 static struct gdt_ptr gdt_descriptor;
 static struct idt_entry idt[256];
 static struct idt_ptr idt_descriptor;
 static volatile uint32_t timer_ticks;
 static volatile uint32_t syscall_entries;
+static struct nova_tss tss;
+static uint32_t tss_kernel_stack[1024] __attribute__((aligned(16)));
+static uint32_t tss_loaded;
 
 extern void gdt_flush(uint32_t descriptor);
+extern void tss_flush(uint32_t selector);
 extern void idt_load(uint32_t descriptor);
 extern void irq0_stub(void);
 extern void exception_stub(void);
@@ -67,6 +101,16 @@ static void set_gdt_entry(int index, uint32_t base, uint32_t limit, uint8_t acce
     gdt[index].access = access;
 }
 
+static void tss_init(void) {
+    uint8_t *bytes = (uint8_t *)&tss;
+    for (uint32_t index = 0; index < sizeof(tss); ++index) {
+        bytes[index] = 0;
+    }
+    tss.ss0 = 0x10;
+    tss.esp0 = (uint32_t)&tss_kernel_stack[1024];
+    tss.iomap_base = sizeof(tss);
+}
+
 static void gdt_init(void) {
     gdt_descriptor.limit = sizeof(gdt) - 1;
     gdt_descriptor.base = (uint32_t)&gdt;
@@ -75,7 +119,10 @@ static void gdt_init(void) {
     set_gdt_entry(2, 0, 0xFFFFFFFF, 0x92, 0xCF);
     set_gdt_entry(3, 0, 0xFFFFFFFF, 0xFA, 0xCF);
     set_gdt_entry(4, 0, 0xFFFFFFFF, 0xF2, 0xCF);
+    set_gdt_entry(5, (uint32_t)&tss, sizeof(tss) - 1, 0x89, 0x00);
     gdt_flush((uint32_t)&gdt_descriptor);
+    tss_flush(0x28);
+    tss_loaded = 1;
 }
 
 static void idt_set_gate(uint8_t index, uint32_t base, uint16_t selector, uint8_t flags) {
@@ -121,6 +168,8 @@ static void pit_init(void) {
 }
 
 void arch_init(void) {
+    tss_loaded = 0;
+    tss_init();
     gdt_init();
     idt_init();
     pit_init();
@@ -149,4 +198,8 @@ void exception_interrupt_handler(void) {
 
 uint32_t timer_get_ticks(void) {
     return timer_ticks;
+}
+
+uint32_t tss_is_loaded(void) {
+    return tss_loaded && tss.ss0 == 0x10 && tss.esp0 != 0 && tss.iomap_base == sizeof(tss);
 }

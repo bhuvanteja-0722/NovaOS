@@ -4,6 +4,7 @@
 #define COM1 0x3F8
 
 extern void arch_init(void);
+extern uint32_t tss_is_loaded(void);
 extern uint32_t timer_get_ticks(void);
 extern void memory_init(uint32_t multiboot_info_address);
 extern uint32_t memory_allocator_start(void);
@@ -145,7 +146,13 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Serial diagnostics online\n");
 
     arch_init();
-    serial_write("[ OK ] GDT loaded\n");
+    if (tss_is_loaded() == 0) {
+        serial_write("ERROR: TSS and kernel interrupt stack initialization failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] GDT and ring-0 TSS loaded\n");
     serial_write("[ OK ] IDT loaded and PIC remapped\n");
     serial_write("[ OK ] PIT configured at 100 Hz\n");
 

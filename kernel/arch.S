@@ -22,6 +22,13 @@ idt_load:
     lidt (%eax)
     ret
 
+.global tss_flush
+.type tss_flush, @function
+tss_flush:
+    mov 4(%esp), %eax
+    ltr %ax
+    ret
+
 .global irq0_stub
 .type irq0_stub, @function
 irq0_stub:

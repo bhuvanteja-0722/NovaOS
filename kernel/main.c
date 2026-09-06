@@ -19,6 +19,10 @@ extern uint32_t syscall_dispatch(uint32_t syscall_number, uint32_t argument0);
 extern uint32_t process_load_image(uint32_t pid, const struct nova_exec_header *header);
 extern uint32_t process_entry_point(uint32_t pid);
 extern uint32_t syscall_entry_count(void);
+extern uint32_t syscall_user_frame_captured(void);
+extern uint32_t syscall_exit_is_requested(void);
+extern uint32_t syscall_last_user_eip(void);
+extern void syscall_interrupt_handler(const void *frame, uint32_t syscall_number);
 extern void fs_init(void);
 extern uint32_t fs_mkdir(const char *path);
 extern uint32_t fs_create(const char *path);
@@ -217,6 +221,34 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Software syscall entry validated\n");
+    if (syscall_user_frame_captured() != 0) {
+        serial_write("ERROR: kernel-origin syscall was accepted as user frame\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    struct nova_test_user_frame {
+        uint32_t eip;
+        uint32_t cs;
+        uint32_t eflags;
+        uint32_t user_esp;
+        uint32_t ss;
+    } synthetic_user_frame = {
+        .eip = NOVA_USER_BASE + 2u,
+        .cs = 0x1Bu,
+        .eflags = 0x202u,
+        .user_esp = NOVA_USER_STACK_TOP,
+        .ss = 0x23u
+    };
+    syscall_interrupt_handler(&synthetic_user_frame, NOVA_SYSCALL_EXIT);
+    if (syscall_user_frame_captured() == 0 || syscall_exit_is_requested() == 0 ||
+        syscall_last_user_eip() != NOVA_USER_BASE + 2u) {
+        serial_write("ERROR: guarded user syscall return decision failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] User syscall frame validation and exit decision prepared\n");
     serial_write("NOVAOS_M4_USERSPACE_OK\n");
 
     fs_init();

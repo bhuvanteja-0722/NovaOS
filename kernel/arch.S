@@ -41,7 +41,12 @@ irq0_stub:
 .type syscall_stub, @function
 syscall_stub:
     pusha
+    lea 32(%esp), %edx
+    mov 28(%esp), %eax
+    push %eax
+    push %edx
     call syscall_interrupt_handler
+    add $8, %esp
     popa
     iret
 

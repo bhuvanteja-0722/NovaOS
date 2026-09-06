@@ -1,4 +1,5 @@
 #include <stdint.h>
+#include "abi.h"
 
 #define COM1 0x3F8
 #define PIC1 0x20
@@ -31,6 +32,14 @@ struct idt_entry {
 struct idt_ptr {
     uint16_t limit;
     uint32_t base;
+} __attribute__((packed));
+
+struct nova_interrupt_frame {
+    uint32_t eip;
+    uint32_t cs;
+    uint32_t eflags;
+    uint32_t user_esp;
+    uint32_t ss;
 } __attribute__((packed));
 
 struct nova_tss {
@@ -72,6 +81,9 @@ static volatile uint32_t syscall_entries;
 static struct nova_tss tss;
 static uint32_t tss_kernel_stack[1024] __attribute__((aligned(16)));
 static uint32_t tss_loaded;
+static volatile uint32_t user_frame_captured;
+static volatile uint32_t syscall_exit_requested;
+static volatile uint32_t last_user_eip;
 
 extern void gdt_flush(uint32_t descriptor);
 extern void tss_flush(uint32_t selector);
@@ -175,12 +187,33 @@ void arch_init(void) {
     pit_init();
 }
 
-void syscall_interrupt_handler(void) {
+void syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t syscall_number) {
     ++syscall_entries;
+    if (frame == (struct nova_interrupt_frame *)0 || frame->cs != 0x1Bu ||
+        frame->ss != 0x23u || frame->eip < NOVA_USER_BASE || frame->eip >= 0x00C00000u) {
+        return;
+    }
+    user_frame_captured = 1;
+    last_user_eip = frame->eip;
+    if (syscall_number == NOVA_SYSCALL_EXIT) {
+        syscall_exit_requested = 1;
+    }
 }
 
 uint32_t syscall_entry_count(void) {
     return syscall_entries;
+}
+
+uint32_t syscall_user_frame_captured(void) {
+    return user_frame_captured;
+}
+
+uint32_t syscall_exit_is_requested(void) {
+    return syscall_exit_requested;
+}
+
+uint32_t syscall_last_user_eip(void) {
+    return last_user_eip;
 }
 
 void timer_interrupt_handler(void) {

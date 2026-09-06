@@ -10,6 +10,7 @@
 #define NOVA_SYSCALL_GETPID 1u
 #define NOVA_SYSCALL_YIELD 2u
 #define NOVA_SYSCALL_WRITE 3u
+#define NOVA_SYSCALL_EXIT 0u
 
 struct nova_exec_header {
     uint32_t magic;

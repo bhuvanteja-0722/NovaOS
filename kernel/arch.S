@@ -59,6 +59,100 @@ syscall_stub:
     popa
     iret
 
+.global page_fault_stub
+.type page_fault_stub, @function
+page_fault_stub:
+    pusha
+    mov 32(%esp), %eax
+    push %eax
+    call page_fault_interrupt_handler
+    add $4, %esp
+    popa
+    add $4, %esp
+    iret
+
+.macro NOVA_VECTOR_STUB name, vector
+.global \name
+.type \name, @function
+\name:
+    pusha
+    push $\vector
+    call general_protection_interrupt_handler
+    add $4, %esp
+    popa
+    iret
+.endm
+
+NOVA_VECTOR_STUB divide_error_stub, 0
+NOVA_VECTOR_STUB invalid_opcode_stub, 6
+NOVA_VECTOR_STUB device_not_available_stub, 7
+NOVA_VECTOR_STUB invalid_tss_stub, 10
+NOVA_VECTOR_STUB segment_not_present_stub, 11
+NOVA_VECTOR_STUB stack_fault_stub, 12
+NOVA_VECTOR_STUB general_protection_stub, 13
+NOVA_VECTOR_STUB exception_vector_1_stub, 1
+NOVA_VECTOR_STUB exception_vector_2_stub, 2
+NOVA_VECTOR_STUB exception_vector_3_stub, 3
+NOVA_VECTOR_STUB exception_vector_4_stub, 4
+NOVA_VECTOR_STUB exception_vector_5_stub, 5
+NOVA_VECTOR_STUB exception_vector_8_stub, 8
+NOVA_VECTOR_STUB exception_vector_9_stub, 9
+NOVA_VECTOR_STUB exception_vector_15_stub, 15
+NOVA_VECTOR_STUB exception_vector_16_stub, 16
+NOVA_VECTOR_STUB exception_vector_17_stub, 17
+NOVA_VECTOR_STUB exception_vector_18_stub, 18
+NOVA_VECTOR_STUB exception_vector_19_stub, 19
+NOVA_VECTOR_STUB exception_vector_20_stub, 20
+NOVA_VECTOR_STUB exception_vector_21_stub, 21
+NOVA_VECTOR_STUB exception_vector_22_stub, 22
+NOVA_VECTOR_STUB exception_vector_23_stub, 23
+NOVA_VECTOR_STUB exception_vector_24_stub, 24
+NOVA_VECTOR_STUB exception_vector_25_stub, 25
+NOVA_VECTOR_STUB exception_vector_26_stub, 26
+NOVA_VECTOR_STUB exception_vector_27_stub, 27
+NOVA_VECTOR_STUB exception_vector_28_stub, 28
+NOVA_VECTOR_STUB exception_vector_29_stub, 29
+NOVA_VECTOR_STUB exception_vector_30_stub, 30
+NOVA_VECTOR_STUB exception_vector_31_stub, 31
+
+.section .rodata
+.global nova_exception_stub_table
+nova_exception_stub_table:
+    .long divide_error_stub
+    .long exception_vector_1_stub
+    .long exception_vector_2_stub
+    .long exception_vector_3_stub
+    .long exception_vector_4_stub
+    .long exception_vector_5_stub
+    .long invalid_opcode_stub
+    .long device_not_available_stub
+    .long exception_vector_8_stub
+    .long exception_vector_9_stub
+    .long invalid_tss_stub
+    .long segment_not_present_stub
+    .long stack_fault_stub
+    .long general_protection_stub
+    .long page_fault_stub
+    .long exception_vector_15_stub
+    .long exception_vector_16_stub
+    .long exception_vector_17_stub
+    .long exception_vector_18_stub
+    .long exception_vector_19_stub
+    .long exception_vector_20_stub
+    .long exception_vector_21_stub
+    .long exception_vector_22_stub
+    .long exception_vector_23_stub
+    .long exception_vector_24_stub
+    .long exception_vector_25_stub
+    .long exception_vector_26_stub
+    .long exception_vector_27_stub
+    .long exception_vector_28_stub
+    .long exception_vector_29_stub
+    .long exception_vector_30_stub
+    .long exception_vector_31_stub
+
+.section .text
+
 .global exception_stub
 .type exception_stub, @function
 exception_stub:

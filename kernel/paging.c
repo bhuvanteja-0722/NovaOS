@@ -17,7 +17,11 @@ void paging_init(void) {
     prepared = 0;
     enabled = 0;
     for (uint32_t directory = 0; directory < 4; ++directory) {
-        page_directory[directory] = ((uint32_t)&page_tables[directory][0]) | NOVA_PAGE_PRESENT | NOVA_PAGE_WRITABLE;
+        uint32_t directory_flags = NOVA_PAGE_PRESENT | NOVA_PAGE_WRITABLE;
+        if (directory >= 1 && directory <= 2) {
+            directory_flags |= NOVA_PAGE_USER;
+        }
+        page_directory[directory] = ((uint32_t)&page_tables[directory][0]) | directory_flags;
         for (uint32_t entry = 0; entry < 1024; ++entry) {
             uint32_t address = (directory * 1024u + entry) * NOVA_PAGE_SIZE;
             uint32_t flags = NOVA_PAGE_PRESENT | NOVA_PAGE_WRITABLE;
@@ -40,7 +44,8 @@ uint32_t paging_validate_layout(void) {
     uint32_t user_entry = page_tables[1][0];
     uint32_t kernel_entry = page_tables[0][0];
     if ((user_entry & (NOVA_PAGE_PRESENT | NOVA_PAGE_USER)) != (NOVA_PAGE_PRESENT | NOVA_PAGE_USER) ||
-        (kernel_entry & NOVA_PAGE_USER) != 0 || (page_tables[2][1023] & NOVA_PAGE_USER) == 0) {
+        (kernel_entry & NOVA_PAGE_USER) != 0 || (page_tables[2][1023] & NOVA_PAGE_USER) == 0 ||
+        (page_directory[1] & NOVA_PAGE_USER) == 0 || (page_directory[2] & NOVA_PAGE_USER) == 0) {
         return 0;
     }
     return 1;

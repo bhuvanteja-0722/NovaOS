@@ -17,9 +17,11 @@ struct nova_iret_frame {
 
 static struct nova_iret_frame frame;
 static uint32_t mapped;
+static uint32_t enabled;
 
 void user_transition_init(void) {
     mapped = 0;
+    enabled = 0;
     frame.eip = 0;
     frame.cs = 0;
     frame.eflags = 0;
@@ -55,7 +57,26 @@ uint32_t user_transition_iret_path_present(void) {
     return (uint32_t)(uintptr_t)&nova_iret_enter != 0u;
 }
 
+uint32_t user_transition_enable(uint32_t entry_point, uint32_t user_stack) {
+    if (!mapped || user_probe_frame_validate(entry_point, user_stack) == 0) {
+        return 0;
+    }
+    enabled = 1;
+    return enabled;
+}
+
 uint32_t user_transition_enabled(void) {
-    /* Deliberately fail closed until TSS-backed entry and a safe return path exist. */
-    return 0;
+    return enabled;
+}
+
+__attribute__((noreturn)) void user_transition_enter(void) {
+    if (!enabled) {
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    nova_iret_enter((uint32_t *)&frame);
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
 }

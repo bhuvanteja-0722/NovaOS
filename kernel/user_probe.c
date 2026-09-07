@@ -6,8 +6,9 @@
 #define NOVA_PROBE_MAX_SIZE 4096u
 
 static const uint8_t probe_image[] = {
+    0x31, 0xC0, /* xor eax, eax: NOVA_SYSCALL_EXIT */
     0xCD, 0x80, /* int 0x80: syscall entry probe */
-    0xF4       /* hlt: probe termination instruction */
+    0xF4       /* hlt: defensive termination instruction */
 };
 
 uint32_t user_probe_entry(void) {
@@ -37,6 +38,7 @@ uint32_t user_probe_copy_to_user_page(void) {
 
 uint32_t user_probe_validate(void) {
     return sizeof(probe_image) > 0 && sizeof(probe_image) <= NOVA_PROBE_MAX_SIZE &&
-           probe_image[0] == 0xCD && probe_image[1] == 0x80 && probe_image[2] == 0xF4 &&
+           probe_image[0] == 0x31 && probe_image[1] == 0xC0 && probe_image[2] == 0xCD &&
+           probe_image[3] == 0x80 && probe_image[4] == 0xF4 &&
            (NOVA_PROBE_ENTRY % 4096u) == 0 && (NOVA_PROBE_STACK % 4096u) == 0;
 }

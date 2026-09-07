@@ -54,6 +54,7 @@ extern uint32_t address_space_validate_user(uint32_t address, uint32_t length, u
 extern void user_mode_init(void);
 extern uint32_t user_mode_prepare(void);
 extern uint32_t user_mode_is_ready(void);
+extern void user_mode_mark_paging_active(void);
 extern uint32_t user_mode_code_selector(void);
 extern uint32_t user_mode_data_selector(void);
 extern uint32_t user_mode_transition_enabled(void);
@@ -82,7 +83,9 @@ extern uint32_t user_probe_map(void);
 extern uint32_t user_probe_build_frame(uint32_t entry_point, uint32_t user_stack);
 extern uint32_t user_probe_frame_validate(uint32_t entry_point, uint32_t user_stack);
 extern uint32_t user_transition_iret_path_present(void);
+extern uint32_t user_transition_enable(uint32_t entry_point, uint32_t user_stack);
 extern uint32_t user_transition_enabled(void);
+extern void user_transition_enter(void);
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -110,7 +113,7 @@ static void serial_write_char(char c) {
     outb(COM1, (uint8_t)c);
 }
 
-static void serial_write(const char *text) {
+void serial_write(const char *text) {
     while (*text != '\0') {
         if (*text == '\n') {
             serial_write_char('\r');
@@ -119,7 +122,7 @@ static void serial_write(const char *text) {
     }
 }
 
-static void serial_write_u32(uint32_t value) {
+void serial_write_u32(uint32_t value) {
     char digits[10];
     int count = 0;
     if (value == 0) {
@@ -446,6 +449,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
 
     address_space_init();
     user_mode_init();
+    user_mode_mark_paging_active();
     if (address_space_map_user(0x00400000u, 0x1000u, 0) == 0 ||
         address_space_map_user(0x00800000u, 0x1000u, 1) == 0 ||
         address_space_validate_user(0x00400000u, 0x100u, 0) == 0 ||
@@ -453,7 +457,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         address_space_validate_user(0x00400000u, 0x100u, 1) != 0 ||
         address_space_validate_user(0xBFFFFFF0u, 0x100u, 0) != 0 ||
         user_mode_prepare() == 0 || user_mode_is_ready() == 0 ||
-        user_mode_code_selector() != 0x1Bu || user_mode_data_selector() != 0x23u || user_mode_transition_enabled() != 0) {
+        user_mode_code_selector() != 0x1Bu || user_mode_data_selector() != 0x23u || user_mode_transition_enabled() == 0) {
         serial_write("ERROR: address-space and user-mode readiness test failed\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
@@ -462,8 +466,16 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Mapped user ranges and pointer validation validated\n");
     serial_write("[ OK ] Ring-3 transition remains disabled until a complete user process is ready\n");
     serial_write("[ OK ] User-mode transition contract prepared\n");
-    serial_write("[ OK ] Ring-3 transition remains fail-closed until a complete user process is ready\n");
+    serial_write("[ OK ] Ring-3 transition prerequisites are complete\n");
+    if (user_transition_enable(user_probe_entry(), user_probe_stack()) == 0 || user_transition_enabled() == 0) {
+        serial_write("ERROR: guarded ring-3 transition enable failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Guarded ring-3 transition enabled; launching probe\n");
     serial_write("NOVAOS_M11_TRANSITION_READY\n");
+    user_transition_enter();
 
     for (;;) {
         __asm__ volatile ("hlt");

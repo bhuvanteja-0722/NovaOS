@@ -25,6 +25,10 @@ uint32_t user_mode_is_ready(void) {
     return ready;
 }
 
+void user_mode_mark_paging_active(void) {
+    paging_active = 1;
+}
+
 uint32_t user_mode_transition_enabled(void) {
     return ready != 0 && paging_active != 0;
 }

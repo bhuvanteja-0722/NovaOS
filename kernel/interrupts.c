@@ -90,10 +90,21 @@ extern void tss_flush(uint32_t selector);
 extern void idt_load(uint32_t descriptor);
 extern void irq0_stub(void);
 extern void exception_stub(void);
+extern void page_fault_stub(void);
+extern void general_protection_stub(void);
+extern void divide_error_stub(void);
+extern void invalid_opcode_stub(void);
+extern void device_not_available_stub(void);
+extern void invalid_tss_stub(void);
+extern void segment_not_present_stub(void);
+extern void stack_fault_stub(void);
 extern void syscall_stub(void);
 extern void scheduler_tick(void);
 extern uint32_t process_current_pid(void);
 extern uint32_t process_terminate(uint32_t pid);
+extern void serial_write(const char *text);
+extern void serial_write_u32(uint32_t value);
+extern uint32_t nova_exception_stub_table[];
 
 static inline void outb(uint16_t port, uint8_t value) {
     __asm__ volatile ("outb %0, %1" : : "a"(value), "Nd"(port));
@@ -158,8 +169,10 @@ static void pic_remap(void) {
     outb(PIC2 + 1, 0x02);
     outb(PIC1 + 1, 0x01);
     outb(PIC2 + 1, 0x01);
-    outb(PIC1 + 1, mask1 & (uint8_t)~0x01);
-    outb(PIC2 + 1, mask2);
+    (void)mask1;
+    (void)mask2;
+    outb(PIC1 + 1, 0xFE);
+    outb(PIC2 + 1, 0xFF);
 }
 
 static void idt_init(void) {
@@ -168,6 +181,17 @@ static void idt_init(void) {
     for (int i = 0; i < 256; ++i) {
         idt_set_gate((uint8_t)i, (uint32_t)exception_stub, 0x08, 0x8E);
     }
+    for (int vector = 0; vector < 32; ++vector) {
+        idt_set_gate((uint8_t)vector, nova_exception_stub_table[vector], 0x08, 0x8E);
+    }
+    idt_set_gate(0, (uint32_t)divide_error_stub, 0x08, 0x8E);
+    idt_set_gate(6, (uint32_t)invalid_opcode_stub, 0x08, 0x8E);
+    idt_set_gate(7, (uint32_t)device_not_available_stub, 0x08, 0x8E);
+    idt_set_gate(10, (uint32_t)invalid_tss_stub, 0x08, 0x8E);
+    idt_set_gate(11, (uint32_t)segment_not_present_stub, 0x08, 0x8E);
+    idt_set_gate(12, (uint32_t)stack_fault_stub, 0x08, 0x8E);
+    idt_set_gate(13, (uint32_t)general_protection_stub, 0x08, 0x8E);
+    idt_set_gate(14, (uint32_t)page_fault_stub, 0x08, 0x8E);
     idt_set_gate(32, (uint32_t)irq0_stub, 0x08, 0x8E);
     idt_set_gate(0x80, (uint32_t)syscall_stub, 0x08, 0xEE);
     pic_remap();
@@ -201,6 +225,7 @@ void syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t sysc
     }
     user_frame_captured = 1;
     last_user_eip = frame->eip;
+    serial_write("NOVAOS_RING3_SYSCALL_FRAME\n");
     if (syscall_number == NOVA_SYSCALL_EXIT) {
         syscall_exit_requested = 1;
     }
@@ -215,6 +240,7 @@ uint32_t syscall_exit_should_terminate(void) {
 __attribute__((noreturn)) void syscall_termination_trampoline(const struct nova_interrupt_frame *frame) {
     if (syscall_user_frame_valid(frame) != 0) {
         (void)process_terminate(process_current_pid());
+        serial_write("NOVAOS_RING3_SYSCALL_EXIT\n");
     }
     for (;;) {
         __asm__ volatile ("cli; hlt");
@@ -243,7 +269,30 @@ void timer_interrupt_handler(void) {
     outb(PIC1, 0x20);
 }
 
+void general_protection_interrupt_handler(uint32_t vector) {
+    serial_write("NOVAOS_RING3_EXCEPTION_VECTOR_");
+    serial_write_u32(vector);
+    serial_write("\n");
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
+
+void page_fault_interrupt_handler(uint32_t error_code) {
+    uint32_t fault_address;
+    __asm__ volatile ("mov %%cr2, %0" : "=r"(fault_address));
+    serial_write("NOVAOS_RING3_PAGE_FAULT_CR2_");
+    serial_write_u32(fault_address);
+    serial_write("_ERR_");
+    serial_write_u32(error_code);
+    serial_write("\n");
+    for (;;) {
+        __asm__ volatile ("cli; hlt");
+    }
+}
+
 void exception_interrupt_handler(void) {
+    serial_write("NOVAOS_RING3_EXCEPTION\n");
     outb(PIC1, 0x20);
     for (;;) {
         __asm__ volatile ("cli; hlt");

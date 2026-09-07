@@ -78,6 +78,7 @@ extern uint32_t user_probe_stack(void);
 extern uint32_t user_probe_size(void);
 extern uint32_t user_probe_validate(void);
 extern uint32_t user_probe_copy_to_user_page(void);
+extern uint32_t user_probe_validate_user_page(const uint8_t *expected, uint32_t length);
 extern void user_transition_init(void);
 extern uint32_t user_probe_map(void);
 extern uint32_t user_probe_build_frame(uint32_t entry_point, uint32_t user_stack);
@@ -297,6 +298,26 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Persistent filesystem superblock mounted\n");
+    struct nova_exec_header loaded_init_header;
+    uint8_t loaded_init_code[4096];
+    uint32_t loaded_init_node = persistent_fs_lookup("/bin/init");
+    int32_t loaded_init_header_read = persistent_fs_read_file(loaded_init_node, &loaded_init_header,
+                                                               sizeof(loaded_init_header), 0);
+    if (loaded_init_node == 0 || loaded_init_header_read != (int32_t)sizeof(loaded_init_header) ||
+        loaded_init_header.magic != NOVA_EXEC_MAGIC || loaded_init_header.version != NOVA_EXEC_VERSION ||
+        loaded_init_header.entry_point != NOVA_USER_BASE || loaded_init_header.image_size == 0 ||
+        loaded_init_header.image_size > sizeof(loaded_init_code) ||
+        persistent_fs_read_file(loaded_init_node, loaded_init_code, loaded_init_header.image_size,
+                                sizeof(loaded_init_header)) != (int32_t)loaded_init_header.image_size ||
+        loaded_init_code[0] != 0x31 || loaded_init_code[1] != 0xC0 || loaded_init_code[2] != 0xCD ||
+        loaded_init_code[3] != 0x80 || loaded_init_code[4] != 0xF4 ||
+        process_load_image(init_pid, &loaded_init_header) == 0) {
+        serial_write("ERROR: NVFS init executable validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] NVFS-backed init executable loaded and validated\n");
     uint32_t motd_node = persistent_fs_lookup("/etc/motd");
     char persisted_motd[sizeof("Welcome to NovaOS") - 1];
     int32_t persisted_read = persistent_fs_read_file(motd_node, persisted_motd, sizeof(persisted_motd), 0);
@@ -408,9 +429,9 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         }
     }
     serial_write("[ OK ] Init protection and process termination guards validated\n");
-    if (user_probe_validate() == 0 || user_probe_size() > 4096u ||
-        process_configure_user_context(init_pid, user_probe_entry(), user_probe_stack()) == 0 ||
-        process_entry_point(init_pid) != user_probe_entry()) {
+    if (user_probe_validate() == 0 || loaded_init_header.image_size > 4096u ||
+        process_configure_user_context(init_pid, loaded_init_header.entry_point, user_probe_stack()) == 0 ||
+        process_entry_point(init_pid) != loaded_init_header.entry_point) {
         serial_write("ERROR: user probe context validation failed\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");
@@ -419,8 +440,13 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] User probe image and stack context validated\n");
     serial_write("[ OK ] Ring-3 entry remains disabled until the probe is mapped\n");
     user_transition_init();
-    if (user_probe_copy_to_user_page() == 0 || user_probe_map() == 0 || user_probe_build_frame(user_probe_entry(), user_probe_stack()) == 0 ||
-        user_probe_frame_validate(user_probe_entry(), user_probe_stack()) == 0 || user_transition_iret_path_present() == 0 ||
+    volatile uint8_t *user_page = (volatile uint8_t *)NOVA_USER_BASE;
+    for (uint32_t index = 0; index < loaded_init_header.image_size; ++index) {
+        user_page[index] = loaded_init_code[index];
+    }
+    if (user_probe_validate_user_page(loaded_init_code, loaded_init_header.image_size) == 0 ||
+        user_probe_map() == 0 || user_probe_build_frame(loaded_init_header.entry_point, user_probe_stack()) == 0 ||
+        user_probe_frame_validate(loaded_init_header.entry_point, user_probe_stack()) == 0 || user_transition_iret_path_present() == 0 ||
         user_transition_enabled() != 0) {
         serial_write("ERROR: protected user transition frame test failed\n");
         for (;;) {
@@ -467,7 +493,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
     serial_write("[ OK ] Ring-3 transition remains disabled until a complete user process is ready\n");
     serial_write("[ OK ] User-mode transition contract prepared\n");
     serial_write("[ OK ] Ring-3 transition prerequisites are complete\n");
-    if (user_transition_enable(user_probe_entry(), user_probe_stack()) == 0 || user_transition_enabled() == 0) {
+    if (user_transition_enable(loaded_init_header.entry_point, user_probe_stack()) == 0 || user_transition_enabled() == 0) {
         serial_write("ERROR: guarded ring-3 transition enable failed\n");
         for (;;) {
             __asm__ volatile ("cli; hlt");

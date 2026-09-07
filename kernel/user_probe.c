@@ -36,6 +36,19 @@ uint32_t user_probe_copy_to_user_page(void) {
     return 1;
 }
 
+uint32_t user_probe_validate_user_page(const uint8_t *expected, uint32_t length) {
+    if (expected == (const uint8_t *)0 || length == 0 || length > NOVA_PROBE_MAX_SIZE) {
+        return 0;
+    }
+    volatile const uint8_t *source = (volatile const uint8_t *)NOVA_PROBE_ENTRY;
+    for (uint32_t index = 0; index < length; ++index) {
+        if (source[index] != expected[index]) {
+            return 0;
+        }
+    }
+    return 1;
+}
+
 uint32_t user_probe_validate(void) {
     return sizeof(probe_image) > 0 && sizeof(probe_image) <= NOVA_PROBE_MAX_SIZE &&
            probe_image[0] == 0x31 && probe_image[1] == 0xC0 && probe_image[2] == 0xCD &&

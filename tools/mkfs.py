@@ -45,8 +45,14 @@ def main(output):
     node_table[0:NODE_SIZE] = node(1, 1, 1, 0, 0, '/')
     node_table[NODE_SIZE:2 * NODE_SIZE] = node(2, 1, 1, 0, 0, 'etc')
     node_table[2 * NODE_SIZE:3 * NODE_SIZE] = node(3, 2, 2, DATA_LBA, 17, 'motd')
+    node_table[3 * NODE_SIZE:4 * NODE_SIZE] = node(4, 1, 1, 0, 0, 'bin')
+    init_code = b'\x31\xC0\xCD\x80\xF4'
+    init_header = struct.pack('<5I', 0x4E4F5641, 1, 0x00400000, len(init_code), 0)
+    init_image = init_header + init_code
+    node_table[4 * NODE_SIZE:5 * NODE_SIZE] = node(5, 4, 2, DATA_LBA + 1, len(init_image), 'init')
     image[NODE_LBA * SECTOR_SIZE:(NODE_LBA + 1) * SECTOR_SIZE] = node_table
     image[DATA_LBA * SECTOR_SIZE:DATA_LBA * SECTOR_SIZE + 17] = b'Welcome to NovaOS'
+    image[(DATA_LBA + 1) * SECTOR_SIZE:(DATA_LBA + 1) * SECTOR_SIZE + len(init_image)] = init_image
     Path(output).write_bytes(image)
 
 

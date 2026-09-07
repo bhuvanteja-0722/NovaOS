@@ -146,6 +146,11 @@ uint32_t persistent_fs_lookup(const char *path) {
             return etc == 0 ? 0 : node_lookup(etc, "motd");
         }
     }
+    if (path[1] == 'b' && path[2] == 'i' && path[3] == 'n' && path[4] == '/' &&
+        path[5] == 'i' && path[6] == 'n' && path[7] == 'i' && path[8] == 't' && path[9] == '\0') {
+        uint32_t bin = node_lookup(1, "bin");
+        return bin == 0 ? 0 : node_lookup(bin, "init");
+    }
     return 0;
 }
 

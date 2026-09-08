@@ -46,9 +46,15 @@ def main(output):
     node_table[NODE_SIZE:2 * NODE_SIZE] = node(2, 1, 1, 0, 0, 'etc')
     node_table[2 * NODE_SIZE:3 * NODE_SIZE] = node(3, 2, 2, DATA_LBA, 17, 'motd')
     node_table[3 * NODE_SIZE:4 * NODE_SIZE] = node(4, 1, 1, 0, 0, 'bin')
-    init_code = (b'\xB8\x01\x00\x00\x00\xCD\x80'  # getpid
+    write_text = b'NOVAOS_USER_WRITE\n'
+    init_code = (b'\xBB\x01\x00\x00\x00'       # ebx = stdout
+                 b'\xB9\x29\x00\x40\x00'       # ecx = user string at 0x400024
+                 b'\xBA\x12\x00\x00\x00'       # edx = 18 bytes
+                 b'\xB8\x03\x00\x00\x00\xCD\x80'  # write
+                 b'\xB8\x01\x00\x00\x00\xCD\x80'  # getpid
                  b'\xB8\x02\x00\x00\x00\xCD\x80'  # yield
-                 b'\x31\xC0\xCD\x80\xF4')  # exit; hlt fallback
+                 b'\x31\xC0\xCD\x80\xF4')        # exit; hlt fallback
+    init_code += write_text
     init_header = struct.pack('<5I', 0x4E4F5641, 1, 0x00400000, len(init_code), 0)
     init_image = init_header + init_code
     node_table[4 * NODE_SIZE:5 * NODE_SIZE] = node(5, 4, 2, DATA_LBA + 1, len(init_image), 'init')

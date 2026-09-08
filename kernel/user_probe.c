@@ -6,9 +6,12 @@
 #define NOVA_PROBE_MAX_SIZE 4096u
 
 static const uint8_t probe_image[] = {
+    0xBB, 0x01, 0x00, 0x00, 0x00, 0xB9, 0x29, 0x00, 0x40, 0x00,
+    0xBA, 0x12, 0x00, 0x00, 0x00, 0xB8, 0x03, 0x00, 0x00, 0x00, 0xCD, 0x80,
     0xB8, 0x01, 0x00, 0x00, 0x00, 0xCD, 0x80,
     0xB8, 0x02, 0x00, 0x00, 0x00, 0xCD, 0x80,
-    0x31, 0xC0, 0xCD, 0x80, 0xF4
+    0x31, 0xC0, 0xCD, 0x80, 0xF4,
+    'N','O','V','A','O','S','_','U','S','E','R','_','W','R','I','T','E','\n'
 };
 uint32_t user_probe_entry(void) {
     return NOVA_PROBE_ENTRY;
@@ -50,10 +53,10 @@ uint32_t user_probe_validate_user_page(const uint8_t *expected, uint32_t length)
 
 uint32_t user_probe_validate(void) {
     return sizeof(probe_image) > 0 && sizeof(probe_image) <= NOVA_PROBE_MAX_SIZE &&
-           probe_image[0] == 0xB8 && probe_image[1] == 0x01 && probe_image[5] == 0xCD &&
-           probe_image[6] == 0x80 && probe_image[7] == 0xB8 && probe_image[8] == 0x02 &&
-           probe_image[12] == 0xCD && probe_image[13] == 0x80 && probe_image[14] == 0x31 &&
-           probe_image[15] == 0xC0 && probe_image[16] == 0xCD && probe_image[17] == 0x80 &&
-           probe_image[18] == 0xF4 &&
+           probe_image[0] == 0xBB && probe_image[5] == 0xB9 && probe_image[10] == 0xBA &&
+           probe_image[15] == 0xB8 && probe_image[20] == 0xCD && probe_image[21] == 0x80 &&
+           probe_image[22] == 0xB8 && probe_image[29] == 0xB8 && probe_image[36] == 0x31 &&
+           probe_image[37] == 0xC0 && probe_image[38] == 0xCD && probe_image[39] == 0x80 &&
+           probe_image[40] == 0xF4 && probe_image[41] == 'N' && probe_image[58] == '\n' &&
            (NOVA_PROBE_ENTRY % 4096u) == 0 && (NOVA_PROBE_STACK % 4096u) == 0;
 }

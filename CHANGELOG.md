@@ -20,6 +20,7 @@ All notable changes to NovaOS will be documented here.
 - M11 fixed built-in user-probe image copied into the identity-mapped user page, aligned the user stack top with the mapped `0x00800000` stack page, corrected user permission bits on parent page-directory entries, added a guarded iret trampoline, installed a ring-0 TSS with a dedicated interrupt stack, added validated syscall-frame capture, a one-shot probe-exit decision, and a kernel-owned non-returning termination trampoline, and completed the first QEMU end-to-end ring-3 probe cycle: `iret` entry, user `int 0x80`, validated syscall frame, and kernel termination.
 - M12 added a deterministic NVFS `/bin/init` executable image with executable-header validation, bounded disk loading, user-page copy verification, and successful disk-loaded ring-3 execution through the existing syscall and termination safeguards.
 - M13 added register-returning userspace syscall dispatch for `getpid` and `yield`, an explicit unsupported-syscall error, scheduler yield rotation, and an NVFS init acceptance sequence proving both syscalls returned before exit.
+- M14 added a bounded userspace `write` syscall with EBX/ECX/EDX validation, user-range and length checks, safe serial byte emission, invalid-write rejection tests, and a disk-loaded init sequence that successfully wrote `NOVAOS_USER_WRITE` before completing getpid, yield, and exit.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

@@ -43,10 +43,11 @@ syscall_stub:
     pusha
     lea 32(%esp), %edx
     mov 28(%esp), %eax
+    push %esp
     push %eax
     push %edx
     call syscall_interrupt_handler
-    add $8, %esp
+    add $12, %esp
     mov %eax, 28(%esp)
     call syscall_exit_should_terminate
     test %eax, %eax

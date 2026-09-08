@@ -34,6 +34,17 @@ struct idt_ptr {
     uint32_t base;
 } __attribute__((packed));
 
+struct nova_saved_registers {
+    uint32_t edi;
+    uint32_t esi;
+    uint32_t ebp;
+    uint32_t saved_esp;
+    uint32_t ebx;
+    uint32_t edx;
+    uint32_t ecx;
+    uint32_t eax;
+};
+
 struct nova_interrupt_frame {
     uint32_t eip;
     uint32_t cs;
@@ -83,6 +94,7 @@ static uint32_t tss_kernel_stack[1024] __attribute__((aligned(16)));
 static uint32_t tss_loaded;
 static volatile uint32_t user_frame_captured;
 static volatile uint32_t syscall_exit_requested;
+static uint32_t probe_write_seen;
 static uint32_t probe_getpid_seen;
 static uint32_t probe_yield_seen;
 static volatile uint32_t last_user_eip;
@@ -106,6 +118,7 @@ extern uint32_t process_current_pid(void);
 extern void scheduler_yield(void);
 extern uint32_t process_terminate(uint32_t pid);
 extern void serial_write(const char *text);
+extern void serial_write_bytes(const char *text, uint32_t length);
 extern void serial_write_u32(uint32_t value);
 extern uint32_t nova_exception_stub_table[];
 
@@ -221,7 +234,13 @@ uint32_t syscall_user_frame_valid(const struct nova_interrupt_frame *frame) {
            frame->ss == 0x23u && frame->eip >= NOVA_USER_BASE && frame->eip < 0x00C00000u;
 }
 
-int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t syscall_number) {
+static uint32_t syscall_user_buffer_valid(uint32_t address, uint32_t length) {
+    uint32_t end = address + length;
+    return address >= NOVA_USER_BASE && end >= address && end <= 0x00C00000u;
+}
+
+int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t syscall_number,
+                                  const struct nova_saved_registers *saved) {
     ++syscall_entries;
     if (syscall_user_frame_valid(frame) == 0) {
         return -NOVA_EINVAL;
@@ -232,6 +251,15 @@ int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t s
     if (syscall_number == NOVA_SYSCALL_EXIT) {
         syscall_exit_requested = 1;
         return 0;
+    }
+    if (syscall_number == NOVA_SYSCALL_WRITE) {
+        if (saved == (const struct nova_saved_registers *)0 || saved->ebx != 1u ||
+            saved->edx > 128u || syscall_user_buffer_valid(saved->ecx, saved->edx) == 0) {
+            return -NOVA_EINVAL;
+        }
+        serial_write_bytes((const char *)(uintptr_t)saved->ecx, saved->edx);
+        probe_write_seen = 1;
+        return (int32_t)saved->edx;
     }
     if (syscall_number == NOVA_SYSCALL_GETPID) {
         probe_getpid_seen = 1;
@@ -246,10 +274,12 @@ int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t s
 }
 
 void syscall_reset_probe_observations(void) {
+    probe_write_seen = 0;
     probe_getpid_seen = 0;
     probe_yield_seen = 0;
 }
 
+uint32_t syscall_probe_write_seen(void) { return probe_write_seen; }
 uint32_t syscall_probe_getpid_seen(void) { return probe_getpid_seen; }
 uint32_t syscall_probe_yield_seen(void) { return probe_yield_seen; }
 
@@ -262,6 +292,9 @@ uint32_t syscall_exit_should_terminate(void) {
 __attribute__((noreturn)) void syscall_termination_trampoline(const struct nova_interrupt_frame *frame) {
     if (syscall_user_frame_valid(frame) != 0) {
         (void)process_terminate(process_current_pid());
+        if (probe_write_seen != 0) {
+            serial_write("NOVAOS_RING3_WRITE_OK\n");
+        }
         if (probe_getpid_seen != 0 && probe_yield_seen != 0) {
             serial_write("NOVAOS_RING3_GETPID_YIELD_OK\n");
         }

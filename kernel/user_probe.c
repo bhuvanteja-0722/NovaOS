@@ -6,11 +6,10 @@
 #define NOVA_PROBE_MAX_SIZE 4096u
 
 static const uint8_t probe_image[] = {
-    0x31, 0xC0, /* xor eax, eax: NOVA_SYSCALL_EXIT */
-    0xCD, 0x80, /* int 0x80: syscall entry probe */
-    0xF4       /* hlt: defensive termination instruction */
+    0xB8, 0x01, 0x00, 0x00, 0x00, 0xCD, 0x80,
+    0xB8, 0x02, 0x00, 0x00, 0x00, 0xCD, 0x80,
+    0x31, 0xC0, 0xCD, 0x80, 0xF4
 };
-
 uint32_t user_probe_entry(void) {
     return NOVA_PROBE_ENTRY;
 }
@@ -51,7 +50,10 @@ uint32_t user_probe_validate_user_page(const uint8_t *expected, uint32_t length)
 
 uint32_t user_probe_validate(void) {
     return sizeof(probe_image) > 0 && sizeof(probe_image) <= NOVA_PROBE_MAX_SIZE &&
-           probe_image[0] == 0x31 && probe_image[1] == 0xC0 && probe_image[2] == 0xCD &&
-           probe_image[3] == 0x80 && probe_image[4] == 0xF4 &&
+           probe_image[0] == 0xB8 && probe_image[1] == 0x01 && probe_image[5] == 0xCD &&
+           probe_image[6] == 0x80 && probe_image[7] == 0xB8 && probe_image[8] == 0x02 &&
+           probe_image[12] == 0xCD && probe_image[13] == 0x80 && probe_image[14] == 0x31 &&
+           probe_image[15] == 0xC0 && probe_image[16] == 0xCD && probe_image[17] == 0x80 &&
+           probe_image[18] == 0xF4 &&
            (NOVA_PROBE_ENTRY % 4096u) == 0 && (NOVA_PROBE_STACK % 4096u) == 0;
 }

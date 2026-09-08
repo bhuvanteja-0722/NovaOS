@@ -83,6 +83,8 @@ static uint32_t tss_kernel_stack[1024] __attribute__((aligned(16)));
 static uint32_t tss_loaded;
 static volatile uint32_t user_frame_captured;
 static volatile uint32_t syscall_exit_requested;
+static uint32_t probe_getpid_seen;
+static uint32_t probe_yield_seen;
 static volatile uint32_t last_user_eip;
 
 extern void gdt_flush(uint32_t descriptor);
@@ -101,6 +103,7 @@ extern void stack_fault_stub(void);
 extern void syscall_stub(void);
 extern void scheduler_tick(void);
 extern uint32_t process_current_pid(void);
+extern void scheduler_yield(void);
 extern uint32_t process_terminate(uint32_t pid);
 extern void serial_write(const char *text);
 extern void serial_write_u32(uint32_t value);
@@ -218,18 +221,37 @@ uint32_t syscall_user_frame_valid(const struct nova_interrupt_frame *frame) {
            frame->ss == 0x23u && frame->eip >= NOVA_USER_BASE && frame->eip < 0x00C00000u;
 }
 
-void syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t syscall_number) {
+int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t syscall_number) {
     ++syscall_entries;
     if (syscall_user_frame_valid(frame) == 0) {
-        return;
+        return -NOVA_EINVAL;
     }
     user_frame_captured = 1;
     last_user_eip = frame->eip;
     serial_write("NOVAOS_RING3_SYSCALL_FRAME\n");
     if (syscall_number == NOVA_SYSCALL_EXIT) {
         syscall_exit_requested = 1;
+        return 0;
     }
+    if (syscall_number == NOVA_SYSCALL_GETPID) {
+        probe_getpid_seen = 1;
+        return (int32_t)process_current_pid();
+    }
+    if (syscall_number == NOVA_SYSCALL_YIELD) {
+        probe_yield_seen = 1;
+        scheduler_yield();
+        return 0;
+    }
+    return -NOVA_ENOSYS;
 }
+
+void syscall_reset_probe_observations(void) {
+    probe_getpid_seen = 0;
+    probe_yield_seen = 0;
+}
+
+uint32_t syscall_probe_getpid_seen(void) { return probe_getpid_seen; }
+uint32_t syscall_probe_yield_seen(void) { return probe_yield_seen; }
 
 uint32_t syscall_exit_should_terminate(void) {
     uint32_t requested = syscall_exit_requested;
@@ -240,6 +262,9 @@ uint32_t syscall_exit_should_terminate(void) {
 __attribute__((noreturn)) void syscall_termination_trampoline(const struct nova_interrupt_frame *frame) {
     if (syscall_user_frame_valid(frame) != 0) {
         (void)process_terminate(process_current_pid());
+        if (probe_getpid_seen != 0 && probe_yield_seen != 0) {
+            serial_write("NOVAOS_RING3_GETPID_YIELD_OK\n");
+        }
         serial_write("NOVAOS_RING3_SYSCALL_EXIT\n");
     }
     for (;;) {

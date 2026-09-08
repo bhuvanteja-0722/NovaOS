@@ -23,7 +23,8 @@ extern uint32_t syscall_user_frame_captured(void);
 extern uint32_t syscall_exit_is_requested(void);
 extern uint32_t syscall_exit_should_terminate(void);
 extern uint32_t syscall_last_user_eip(void);
-extern void syscall_interrupt_handler(const void *frame, uint32_t syscall_number);
+extern void syscall_reset_probe_observations(void);
+extern int32_t syscall_interrupt_handler(const void *frame, uint32_t syscall_number);
 extern void fs_init(void);
 extern uint32_t fs_mkdir(const char *path);
 extern uint32_t fs_create(const char *path);
@@ -245,6 +246,14 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         .user_esp = NOVA_USER_STACK_TOP,
         .ss = 0x23u
     };
+    if (syscall_interrupt_handler(&synthetic_user_frame, NOVA_SYSCALL_GETPID) != (int32_t)init_pid ||
+        syscall_interrupt_handler(&synthetic_user_frame, NOVA_SYSCALL_YIELD) != 0 ||
+        syscall_interrupt_handler(&synthetic_user_frame, 0xFFFFFFFFu) != -NOVA_ENOSYS) {
+        serial_write("ERROR: getpid/yield syscall dispatch validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
     syscall_interrupt_handler(&synthetic_user_frame, NOVA_SYSCALL_EXIT);
     if (syscall_user_frame_captured() == 0 || syscall_exit_is_requested() == 0 ||
         syscall_last_user_eip() != NOVA_USER_BASE + 2u || syscall_exit_should_terminate() == 0 ||
@@ -254,6 +263,7 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
             __asm__ volatile ("cli; hlt");
         }
     }
+    syscall_reset_probe_observations();
     serial_write("[ OK ] User syscall frame validation and exit decision prepared\n");
     serial_write("NOVAOS_M4_USERSPACE_OK\n");
 
@@ -309,8 +319,11 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         loaded_init_header.image_size > sizeof(loaded_init_code) ||
         persistent_fs_read_file(loaded_init_node, loaded_init_code, loaded_init_header.image_size,
                                 sizeof(loaded_init_header)) != (int32_t)loaded_init_header.image_size ||
-        loaded_init_code[0] != 0x31 || loaded_init_code[1] != 0xC0 || loaded_init_code[2] != 0xCD ||
-        loaded_init_code[3] != 0x80 || loaded_init_code[4] != 0xF4 ||
+        loaded_init_code[0] != 0xB8 || loaded_init_code[1] != 0x01 || loaded_init_code[5] != 0xCD ||
+        loaded_init_code[6] != 0x80 || loaded_init_code[7] != 0xB8 || loaded_init_code[8] != 0x02 ||
+        loaded_init_code[12] != 0xCD || loaded_init_code[13] != 0x80 || loaded_init_code[14] != 0x31 ||
+        loaded_init_code[15] != 0xC0 || loaded_init_code[16] != 0xCD || loaded_init_code[17] != 0x80 ||
+        loaded_init_code[18] != 0xF4 ||
         process_load_image(init_pid, &loaded_init_header) == 0) {
         serial_write("ERROR: NVFS init executable validation failed\n");
         for (;;) {

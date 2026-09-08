@@ -47,6 +47,7 @@ syscall_stub:
     push %edx
     call syscall_interrupt_handler
     add $8, %esp
+    mov %eax, 28(%esp)
     call syscall_exit_should_terminate
     test %eax, %eax
     jz .syscall_return

@@ -29,6 +29,13 @@ uint32_t scheduler_add(uint32_t pid) {
     return 1;
 }
 
+void scheduler_yield(void) {
+    if (run_count > 1) {
+        current_index = (current_index + 1) % run_count;
+        run_queue[current_index].ticks_left = NOVA_SCHED_QUANTUM;
+    }
+}
+
 void scheduler_tick(void) {
     if (run_count == 0) {
         return;

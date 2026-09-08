@@ -92,6 +92,7 @@ smoke: iso disk
 	(timeout 8s qemu-system-i386 -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
 	cat $$log_file; \
 	grep -q 'NOVAOS_M11_TRANSITION_READY' $$log_file; \
+	grep -q 'NOVAOS_RING3_GETPID_YIELD_OK' $$log_file; \
 	grep -q 'NOVAOS_RING3_SYSCALL_EXIT' $$log_file; \
 	rm -f $$log_file; \
 	echo 'NovaOS M11 transition readiness smoke test passed.'

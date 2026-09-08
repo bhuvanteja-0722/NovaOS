@@ -22,6 +22,7 @@ All notable changes to NovaOS will be documented here.
 - M13 added register-returning userspace syscall dispatch for `getpid` and `yield`, an explicit unsupported-syscall error, scheduler yield rotation, and an NVFS init acceptance sequence proving both syscalls returned before exit.
 - M14 added a bounded userspace `write` syscall with EBX/ECX/EDX validation, user-range and length checks, safe serial byte emission, invalid-write rejection tests, and a disk-loaded init sequence that successfully wrote `NOVAOS_USER_WRITE` before completing getpid, yield, and exit.
 - M15 moved file descriptors into per-process tables, added bounded process-owned descriptor lookup, verified descriptor-table isolation, and cleared all descriptors when a process terminates.
+- M16 integrated process-owned `open`, `read`, and `close` into the ring-3 syscall ABI with validated user paths and buffers; the NVFS init program now reads `/etc/motd`, closes its descriptor, writes the read content, and completes the existing syscall sequence successfully.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

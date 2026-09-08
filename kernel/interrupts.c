@@ -94,6 +94,9 @@ static uint32_t tss_kernel_stack[1024] __attribute__((aligned(16)));
 static uint32_t tss_loaded;
 static volatile uint32_t user_frame_captured;
 static volatile uint32_t syscall_exit_requested;
+static uint32_t probe_open_seen;
+static uint32_t probe_read_seen;
+static uint32_t probe_close_seen;
 static uint32_t probe_write_seen;
 static uint32_t probe_getpid_seen;
 static uint32_t probe_yield_seen;
@@ -117,6 +120,9 @@ extern void scheduler_tick(void);
 extern uint32_t process_current_pid(void);
 extern void scheduler_yield(void);
 extern uint32_t process_terminate(uint32_t pid);
+extern int32_t nova_sys_open(const char *path);
+extern int32_t nova_sys_read(uint32_t fd, void *buffer, uint32_t length);
+extern int32_t nova_sys_close(uint32_t fd);
 extern void serial_write(const char *text);
 extern void serial_write_bytes(const char *text, uint32_t length);
 extern void serial_write_u32(uint32_t value);
@@ -239,6 +245,22 @@ static uint32_t syscall_user_buffer_valid(uint32_t address, uint32_t length) {
     return address >= NOVA_USER_BASE && end >= address && end <= 0x00C00000u;
 }
 
+static uint32_t syscall_user_path_valid(uint32_t address) {
+    if (syscall_user_buffer_valid(address, 1u) == 0) {
+        return 0;
+    }
+    const char *path = (const char *)(uintptr_t)address;
+    for (uint32_t index = 0; index < 64u; ++index) {
+        if (syscall_user_buffer_valid(address + index, 1u) == 0) {
+            return 0;
+        }
+        if (path[index] == '\0') {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t syscall_number,
                                   const struct nova_saved_registers *saved) {
     ++syscall_entries;
@@ -251,6 +273,37 @@ int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t s
     if (syscall_number == NOVA_SYSCALL_EXIT) {
         syscall_exit_requested = 1;
         return 0;
+    }
+    if (syscall_number == NOVA_SYSCALL_OPEN) {
+        if (saved == (const struct nova_saved_registers *)0 || syscall_user_path_valid(saved->ecx) == 0) {
+            return -NOVA_EINVAL;
+        }
+        int32_t result = nova_sys_open((const char *)(uintptr_t)saved->ecx);
+        if (result >= 0) {
+            probe_open_seen = 1;
+        }
+        return result;
+    }
+    if (syscall_number == NOVA_SYSCALL_READ) {
+        if (saved == (const struct nova_saved_registers *)0 || saved->edx > 512u ||
+            syscall_user_buffer_valid(saved->ecx, saved->edx) == 0) {
+            return -NOVA_EINVAL;
+        }
+        int32_t result = nova_sys_read(saved->ebx, (void *)(uintptr_t)saved->ecx, saved->edx);
+        if (result > 0) {
+            probe_read_seen = 1;
+        }
+        return result;
+    }
+    if (syscall_number == NOVA_SYSCALL_CLOSE) {
+        if (saved == (const struct nova_saved_registers *)0) {
+            return -NOVA_EINVAL;
+        }
+        int32_t result = nova_sys_close(saved->ebx);
+        if (result == 0) {
+            probe_close_seen = 1;
+        }
+        return result;
     }
     if (syscall_number == NOVA_SYSCALL_WRITE) {
         if (saved == (const struct nova_saved_registers *)0 || saved->ebx != 1u ||
@@ -274,11 +327,17 @@ int32_t syscall_interrupt_handler(struct nova_interrupt_frame *frame, uint32_t s
 }
 
 void syscall_reset_probe_observations(void) {
+    probe_open_seen = 0;
+    probe_read_seen = 0;
+    probe_close_seen = 0;
     probe_write_seen = 0;
     probe_getpid_seen = 0;
     probe_yield_seen = 0;
 }
 
+uint32_t syscall_probe_open_seen(void) { return probe_open_seen; }
+uint32_t syscall_probe_read_seen(void) { return probe_read_seen; }
+uint32_t syscall_probe_close_seen(void) { return probe_close_seen; }
 uint32_t syscall_probe_write_seen(void) { return probe_write_seen; }
 uint32_t syscall_probe_getpid_seen(void) { return probe_getpid_seen; }
 uint32_t syscall_probe_yield_seen(void) { return probe_yield_seen; }
@@ -292,6 +351,9 @@ uint32_t syscall_exit_should_terminate(void) {
 __attribute__((noreturn)) void syscall_termination_trampoline(const struct nova_interrupt_frame *frame) {
     if (syscall_user_frame_valid(frame) != 0) {
         (void)process_terminate(process_current_pid());
+        if (probe_open_seen != 0 && probe_read_seen != 0 && probe_close_seen != 0) {
+            serial_write("NOVAOS_RING3_FD_OK\n");
+        }
         if (probe_write_seen != 0) {
             serial_write("NOVAOS_RING3_WRITE_OK\n");
         }

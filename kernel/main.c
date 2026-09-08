@@ -331,10 +331,11 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         loaded_init_header.image_size > sizeof(loaded_init_code) ||
         persistent_fs_read_file(loaded_init_node, loaded_init_code, loaded_init_header.image_size,
                                 sizeof(loaded_init_header)) != (int32_t)loaded_init_header.image_size ||
-        loaded_init_header.image_size != 59u || loaded_init_code[0] != 0xBB || loaded_init_code[5] != 0xB9 ||
-        loaded_init_code[10] != 0xBA || loaded_init_code[15] != 0xB8 || loaded_init_code[20] != 0xCD ||
-        loaded_init_code[21] != 0x80 || loaded_init_code[22] != 0xB8 || loaded_init_code[29] != 0xB8 ||
-        loaded_init_code[41] != 'N' || loaded_init_code[58] != '\n' ||
+        loaded_init_header.image_size != 106u || loaded_init_code[0] != 0xB9 || loaded_init_code[5] != 0xB8 ||
+        loaded_init_code[12] != 0x89 || loaded_init_code[14] != 0xB9 || loaded_init_code[19] != 0xBA ||
+        loaded_init_code[24] != 0xB8 || loaded_init_code[31] != 0xB8 || loaded_init_code[60] != 0xB8 ||
+        loaded_init_code[79] != '/' || loaded_init_code[87] != 'd' || loaded_init_code[89] != 'W' ||
+        loaded_init_code[105] != 'S' ||
         process_load_image(init_pid, &loaded_init_header) == 0) {
         serial_write("ERROR: NVFS init executable validation failed\n");
         for (;;) {

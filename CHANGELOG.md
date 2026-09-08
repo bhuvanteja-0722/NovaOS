@@ -21,6 +21,7 @@ All notable changes to NovaOS will be documented here.
 - M12 added a deterministic NVFS `/bin/init` executable image with executable-header validation, bounded disk loading, user-page copy verification, and successful disk-loaded ring-3 execution through the existing syscall and termination safeguards.
 - M13 added register-returning userspace syscall dispatch for `getpid` and `yield`, an explicit unsupported-syscall error, scheduler yield rotation, and an NVFS init acceptance sequence proving both syscalls returned before exit.
 - M14 added a bounded userspace `write` syscall with EBX/ECX/EDX validation, user-range and length checks, safe serial byte emission, invalid-write rejection tests, and a disk-loaded init sequence that successfully wrote `NOVAOS_USER_WRITE` before completing getpid, yield, and exit.
+- M15 moved file descriptors into per-process tables, added bounded process-owned descriptor lookup, verified descriptor-table isolation, and cleared all descriptors when a process terminates.
 - Phase 0 repository structure.
 - Freestanding Multiboot kernel bootstrap.
 - GRUB ISO packaging and QEMU run target.

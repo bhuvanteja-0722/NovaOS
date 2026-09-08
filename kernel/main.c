@@ -43,6 +43,8 @@ extern int32_t nova_sys_open(const char *path);
 extern int32_t nova_sys_read(uint32_t fd, void *buffer, uint32_t length);
 extern int32_t nova_sys_close(uint32_t fd);
 extern uint32_t nova_sys_fd_is_open(uint32_t fd);
+extern int32_t nova_sys_fd_is_open_for(uint32_t pid, uint32_t fd);
+extern struct nova_fd *process_fd_table(uint32_t pid);
 extern void scheduler_init(void);
 extern uint32_t scheduler_add(uint32_t pid);
 extern void scheduler_tick(void);
@@ -450,7 +452,28 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
             __asm__ volatile ("cli; hlt");
         }
     }
-    serial_write("[ OK ] Init protection and process termination guards validated\n");
+    int32_t owned_fd = nova_sys_open("/etc/motd");
+    struct nova_fd *worker_fds = process_fd_table(worker_pid);
+    if (owned_fd < 0 || worker_fds == (struct nova_fd *)0 ||
+        process_fd_table(init_pid) == worker_fds ||
+        nova_sys_fd_is_open_for(worker_pid, (uint32_t)owned_fd) != 0) {
+        serial_write("ERROR: process descriptor isolation setup failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    worker_fds[(uint32_t)owned_fd].used = 1;
+    worker_fds[(uint32_t)owned_fd].node_id = 3;
+    worker_fds[(uint32_t)owned_fd].offset = 0;
+    worker_fds[(uint32_t)owned_fd].flags = NOVA_FD_READ;
+    if (process_terminate(worker_pid) == 0 || nova_sys_fd_is_open_for(worker_pid, (uint32_t)owned_fd) != 0 ||
+        nova_sys_fd_is_open((uint32_t)owned_fd) == 0 || nova_sys_close((uint32_t)owned_fd) != 0) {
+        serial_write("ERROR: process descriptor cleanup failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Process-owned descriptors isolated and cleaned up\n");
     if (user_probe_validate() == 0 || loaded_init_header.image_size > 4096u ||
         process_configure_user_context(init_pid, loaded_init_header.entry_point, user_probe_stack()) == 0 ||
         process_entry_point(init_pid) != loaded_init_header.entry_point) {

@@ -1,24 +1,14 @@
 #include <stdint.h>
+#include "abi.h"
 
-#define NOVA_MAX_FDS 8u
-#define NOVA_FD_INVALID 0xFFFFFFFFu
 #define NOVA_EBADF 9
-#define NOVA_EINVAL 22
 #define NOVA_ENOENT 2
 #define NOVA_EOVERFLOW 75
-#define NOVA_FD_READ 1u
 
-struct nova_fd {
-    uint32_t used;
-    uint32_t node_id;
-    uint32_t offset;
-    uint32_t flags;
-};
-
+extern uint32_t process_current_pid(void);
+extern struct nova_fd *process_fd_table(uint32_t pid);
 extern uint32_t persistent_fs_lookup(const char *path);
 extern int32_t persistent_fs_read_file(uint32_t node_id, void *buffer, uint32_t length, uint32_t offset);
-
-static struct nova_fd descriptors[NOVA_MAX_FDS];
 
 static uint32_t buffer_valid(const void *buffer, uint32_t length) {
     uintptr_t start = (uintptr_t)buffer;
@@ -27,18 +17,16 @@ static uint32_t buffer_valid(const void *buffer, uint32_t length) {
 }
 
 void syscalls_init(void) {
-    for (uint32_t index = 0; index < NOVA_MAX_FDS; ++index) {
-        descriptors[index].used = 0;
-        descriptors[index].node_id = 0;
-        descriptors[index].offset = 0;
-        descriptors[index].flags = 0;
-    }
 }
 
 int32_t nova_sys_open(const char *path) {
     uint32_t node_id = persistent_fs_lookup(path);
+    struct nova_fd *descriptors = process_fd_table(process_current_pid());
     if (node_id == 0) {
         return -NOVA_ENOENT;
+    }
+    if (descriptors == (struct nova_fd *)0) {
+        return -NOVA_EBADF;
     }
     for (uint32_t index = 0; index < NOVA_MAX_FDS; ++index) {
         if (!descriptors[index].used) {
@@ -53,7 +41,8 @@ int32_t nova_sys_open(const char *path) {
 }
 
 int32_t nova_sys_read(uint32_t fd, void *buffer, uint32_t length) {
-    if (fd >= NOVA_MAX_FDS || !descriptors[fd].used) {
+    struct nova_fd *descriptors = process_fd_table(process_current_pid());
+    if (descriptors == (struct nova_fd *)0 || fd >= NOVA_MAX_FDS || !descriptors[fd].used) {
         return -NOVA_EBADF;
     }
     if (!buffer_valid(buffer, length) || length > 512u) {
@@ -68,7 +57,8 @@ int32_t nova_sys_read(uint32_t fd, void *buffer, uint32_t length) {
 }
 
 int32_t nova_sys_close(uint32_t fd) {
-    if (fd >= NOVA_MAX_FDS || !descriptors[fd].used) {
+    struct nova_fd *descriptors = process_fd_table(process_current_pid());
+    if (descriptors == (struct nova_fd *)0 || fd >= NOVA_MAX_FDS || !descriptors[fd].used) {
         return -NOVA_EBADF;
     }
     descriptors[fd].used = 0;
@@ -79,5 +69,11 @@ int32_t nova_sys_close(uint32_t fd) {
 }
 
 uint32_t nova_sys_fd_is_open(uint32_t fd) {
-    return fd < NOVA_MAX_FDS && descriptors[fd].used;
+    struct nova_fd *descriptors = process_fd_table(process_current_pid());
+    return descriptors != (struct nova_fd *)0 && fd < NOVA_MAX_FDS && descriptors[fd].used;
+}
+
+int32_t nova_sys_fd_is_open_for(uint32_t pid, uint32_t fd) {
+    struct nova_fd *descriptors = process_fd_table(pid);
+    return descriptors != (struct nova_fd *)0 && fd < NOVA_MAX_FDS && descriptors[fd].used;
 }

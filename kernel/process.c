@@ -13,6 +13,7 @@ struct nova_process {
     uint32_t user_stack;
     uint32_t timeslice_ticks;
     struct nova_cpu_context context;
+    struct nova_fd descriptors[NOVA_MAX_FDS];
     char name[NOVA_PROCESS_NAME_MAX];
 };
 
@@ -52,6 +53,12 @@ uint32_t process_create(const char *name, uint32_t parent_pid) {
     process->context.eip = 0;
     process->context.user_esp = NOVA_USER_STACK_TOP;
     process->context.user_ss = 0x23;
+    for (uint32_t fd = 0; fd < NOVA_MAX_FDS; ++fd) {
+        process->descriptors[fd].used = 0;
+        process->descriptors[fd].node_id = 0;
+        process->descriptors[fd].offset = 0;
+        process->descriptors[fd].flags = 0;
+    }
     copy_name(process->name, name);
 
     if (current_pid == 0) {
@@ -126,6 +133,12 @@ uint32_t process_terminate(uint32_t pid) {
     for (uint32_t index = 0; index < process_total; ++index) {
         if (process_table[index].pid == pid && process_table[index].state != 0) {
             process_table[index].state = 0;
+            for (uint32_t fd = 0; fd < NOVA_MAX_FDS; ++fd) {
+                process_table[index].descriptors[fd].used = 0;
+                process_table[index].descriptors[fd].node_id = 0;
+                process_table[index].descriptors[fd].offset = 0;
+                process_table[index].descriptors[fd].flags = 0;
+            }
             return 1;
         }
     }
@@ -147,6 +160,21 @@ uint32_t process_count(void) {
 
 uint32_t process_current_pid(void) {
     return current_pid;
+}
+
+struct nova_fd *process_fd_table(uint32_t pid) {
+    for (uint32_t index = 0; index < process_total; ++index) {
+        if (process_table[index].pid == pid && process_table[index].state != 0) {
+            return process_table[index].descriptors;
+        }
+    }
+    return (struct nova_fd *)0;
+}
+
+uint32_t process_fd_isolated(uint32_t first_pid, uint32_t second_pid) {
+    struct nova_fd *first = process_fd_table(first_pid);
+    struct nova_fd *second = process_fd_table(second_pid);
+    return first != (struct nova_fd *)0 && second != (struct nova_fd *)0 && first != second;
 }
 
 uint32_t process_entry_point(uint32_t pid) {

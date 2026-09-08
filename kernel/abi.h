@@ -13,6 +13,15 @@
 #define NOVA_SYSCALL_EXIT 0u
 #define NOVA_ENOSYS 38
 #define NOVA_EINVAL 22
+#define NOVA_MAX_FDS 8u
+#define NOVA_FD_READ 1u
+
+struct nova_fd {
+    uint32_t used;
+    uint32_t node_id;
+    uint32_t offset;
+    uint32_t flags;
+};
 
 struct nova_exec_header {
     uint32_t magic;

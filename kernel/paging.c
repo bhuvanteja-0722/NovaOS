@@ -67,3 +67,30 @@ uint32_t paging_enable(void) {
 uint32_t paging_is_prepared(void) { return prepared; }
 uint32_t paging_is_enabled(void) { return enabled; }
 uint32_t paging_directory_address(void) { return (uint32_t)&page_directory[0]; }
+
+uint32_t paging_user_range_mapped(uint32_t address, uint32_t length, uint32_t writable) {
+    uint32_t end = address + length;
+    if (!enabled || address < NOVA_USER_START || end < address || end > NOVA_USER_END) {
+        return 0;
+    }
+    if (length == 0) {
+        return 1;
+    }
+    uint32_t first_page = address & ~(NOVA_PAGE_SIZE - 1u);
+    uint32_t last_page = (end - 1u) & ~(NOVA_PAGE_SIZE - 1u);
+    for (uint32_t page = first_page;; page += NOVA_PAGE_SIZE) {
+        uint32_t directory_index = page >> 22;
+        uint32_t table_index = (page >> 12) & 0x3FFu;
+        uint32_t directory_entry = page_directory[directory_index];
+        uint32_t table_entry = page_tables[directory_index][table_index];
+        uint32_t required = NOVA_PAGE_PRESENT | NOVA_PAGE_USER;
+        if ((directory_entry & required) != required || (table_entry & required) != required ||
+            (writable != 0 && (table_entry & NOVA_PAGE_WRITABLE) == 0)) {
+            return 0;
+        }
+        if (page == last_page) {
+            break;
+        }
+    }
+    return 1;
+}

@@ -9,6 +9,8 @@ extern uint32_t process_current_pid(void);
 extern struct nova_fd *process_fd_table(uint32_t pid);
 extern uint32_t persistent_fs_lookup(const char *path);
 extern int32_t persistent_fs_read_file(uint32_t node_id, void *buffer, uint32_t length, uint32_t offset);
+extern uint32_t persistent_fs_file_size(uint32_t node_id);
+extern int32_t persistent_fs_list_dir(const char *path, char *buffer, uint32_t length);
 
 static uint32_t buffer_valid(const void *buffer, uint32_t length) {
     uintptr_t start = (uintptr_t)buffer;
@@ -54,6 +56,30 @@ int32_t nova_sys_read(uint32_t fd, void *buffer, uint32_t length) {
     }
     descriptors[fd].offset += (uint32_t)result;
     return result;
+}
+
+int32_t nova_sys_seek(uint32_t fd, uint32_t offset, uint32_t whence) {
+    struct nova_fd *descriptors = process_fd_table(process_current_pid());
+    if (descriptors == (struct nova_fd *)0 || fd >= NOVA_MAX_FDS || !descriptors[fd].used || whence > 1u) {
+        return -NOVA_EBADF;
+    }
+    uint32_t file_size = persistent_fs_file_size(descriptors[fd].node_id);
+    uint32_t next_offset = whence == 0u ? offset : descriptors[fd].offset + offset;
+    if (next_offset < descriptors[fd].offset && whence == 1u) {
+        return -NOVA_EINVAL;
+    }
+    if (next_offset > file_size) {
+        return -NOVA_EINVAL;
+    }
+    descriptors[fd].offset = next_offset;
+    return (int32_t)next_offset;
+}
+
+int32_t nova_sys_listdir(const char *path, void *buffer, uint32_t length) {
+    if (path == (const char *)0 || buffer == (void *)0 || length > 128u) {
+        return -NOVA_EINVAL;
+    }
+    return persistent_fs_list_dir(path, (char *)buffer, length);
 }
 
 int32_t nova_sys_close(uint32_t fd) {

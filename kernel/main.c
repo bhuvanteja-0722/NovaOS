@@ -67,6 +67,7 @@ extern uint32_t paging_is_prepared(void);
 extern uint32_t paging_enable(void);
 extern uint32_t paging_is_enabled(void);
 extern uint32_t paging_directory_address(void);
+extern uint32_t paging_user_range_mapped(uint32_t address, uint32_t length, uint32_t writable);
 extern void process_spaces_init(void);
 extern uint32_t process_space_create(uint32_t pid);
 extern uint32_t process_space_validate(uint32_t space_id, uint32_t pid);
@@ -331,11 +332,9 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
         loaded_init_header.image_size > sizeof(loaded_init_code) ||
         persistent_fs_read_file(loaded_init_node, loaded_init_code, loaded_init_header.image_size,
                                 sizeof(loaded_init_header)) != (int32_t)loaded_init_header.image_size ||
-        loaded_init_header.image_size != 106u || loaded_init_code[0] != 0xB9 || loaded_init_code[5] != 0xB8 ||
-        loaded_init_code[12] != 0x89 || loaded_init_code[14] != 0xB9 || loaded_init_code[19] != 0xBA ||
-        loaded_init_code[24] != 0xB8 || loaded_init_code[31] != 0xB8 || loaded_init_code[60] != 0xB8 ||
-        loaded_init_code[79] != '/' || loaded_init_code[87] != 'd' || loaded_init_code[89] != 'W' ||
-        loaded_init_code[105] != 'S' ||
+        loaded_init_header.image_size != 172u || loaded_init_code[135] != '/' ||
+        loaded_init_code[143] != 'd' || loaded_init_code[145] != 'W' || loaded_init_code[162] != '/' ||
+        loaded_init_code[167] != 'i' || loaded_init_code[171] != '\n' ||
         process_load_image(init_pid, &loaded_init_header) == 0) {
         serial_write("ERROR: NVFS init executable validation failed\n");
         for (;;) {
@@ -517,7 +516,15 @@ void kmain(uint32_t multiboot_magic, uint32_t multiboot_info) {
             __asm__ volatile ("cli; hlt");
         }
     }
-    serial_write("[ OK ] Controlled CR3/CR0 paging activation validated\n");
+    if (paging_user_range_mapped(NOVA_USER_BASE, 64u, 1u) == 0 ||
+        paging_user_range_mapped(0x00100000u, 64u, 0u) != 0 ||
+        paging_user_range_mapped(0x00BFFFF0u, 32u, 0u) != 0) {
+        serial_write("ERROR: explicit user-page mapping validation failed\n");
+        for (;;) {
+            __asm__ volatile ("cli; hlt");
+        }
+    }
+    serial_write("[ OK ] Explicit user-page mapping checks validated\n");
 
     address_space_init();
     user_mode_init();

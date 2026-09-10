@@ -12,7 +12,7 @@ OBJCOPY := objcopy
 CFLAGS := -m32 -std=c11 -ffreestanding -fno-pie -fno-stack-protector -fno-asynchronous-unwind-tables -Wall -Wextra -Werror -O2
 LDFLAGS := -m elf_i386 -T linker.ld -nostdlib
 
-.PHONY: all kernel iso disk run smoke clean format
+.PHONY: all kernel iso disk run smoke userlib-check clean format
 
 all: iso
 
@@ -86,13 +86,16 @@ disk: tools/mkfs.py | $(BUILD_DIR)
 run: iso disk
 	qemu-system-i386 -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide -serial stdio -display none -no-reboot -no-shutdown
 
+userlib-check:
+	$(CC) $(CFLAGS) -Iuser -fsyntax-only user/libnova_test.c
+
 smoke: iso disk
 	@set -eu; \
 	log_file=$$(mktemp); \
 	(timeout 8s qemu-system-i386 -cdrom $(ISO) -drive file=$(DISK),format=raw,if=ide -serial file:$$log_file -display none -no-reboot -no-shutdown >/dev/null 2>&1 || true); \
 	cat $$log_file; \
 	grep -q 'NOVAOS_M11_TRANSITION_READY' $$log_file; \
-	grep -q 'NOVAOS_RING3_FD_OK' $$log_file; \
+	grep -q 'NOVAOS_RING3_FD_SEEK_LIST_OK' $$log_file; \
 	grep -q 'NOVAOS_RING3_WRITE_OK' $$log_file; \
 	grep -q 'NOVAOS_RING3_GETPID_YIELD_OK' $$log_file; \
 	grep -q 'NOVAOS_RING3_SYSCALL_EXIT' $$log_file; \

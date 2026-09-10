@@ -47,21 +47,31 @@ def main(output):
     node_table[2 * NODE_SIZE:3 * NODE_SIZE] = node(3, 2, 2, DATA_LBA, 17, 'motd')
     node_table[3 * NODE_SIZE:4 * NODE_SIZE] = node(4, 1, 1, 0, 0, 'bin')
     path_text = b'/etc/motd\0'
-    init_code = (b'\xB9\x4F\x00\x40\x00'       # ecx = /etc/motd at 0x40004f
+    init_code = (b'\xB9\x87\x00\x40\x00'       # ecx = /etc/motd at 0x400087
                  b'\xB8\x04\x00\x00\x00\xCD\x80'  # open
                  b'\x89\xC3'                       # ebx = fd
-                 b'\xB9\x59\x00\x40\x00'       # ecx = read buffer at 0x400059
+                 b'\xB9\x00\x00\x00\x00'       # ecx = offset 0
+                 b'\xBA\x00\x00\x00\x00'       # edx = SEEK_SET
+                 b'\xB8\x07\x00\x00\x00\xCD\x80'  # seek
+                 b'\xB9\x91\x00\x40\x00'       # ecx = read buffer at 0x400091
                  b'\xBA\x11\x00\x00\x00'       # edx = 17 bytes
                  b'\xB8\x05\x00\x00\x00\xCD\x80'  # read
                  b'\xB8\x06\x00\x00\x00\xCD\x80'  # close
+                 b'\xBB\xA2\x00\x40\x00'       # ebx = /bin at 0x4000a2
+                 b'\xB9\xA7\x00\x40\x00'       # ecx = list buffer at 0x4000a7
+                 b'\xBA\x05\x00\x00\x00'       # edx = 5 bytes
+                 b'\xB8\x08\x00\x00\x00\xCD\x80'  # listdir
                  b'\xBB\x01\x00\x00\x00'       # ebx = stdout
-                 b'\xB9\x59\x00\x40\x00'       # ecx = read buffer
+                 b'\xB9\x91\x00\x40\x00'       # ecx = read buffer
                  b'\xBA\x11\x00\x00\x00'       # edx = 17 bytes
-                 b'\xB8\x03\x00\x00\x00\xCD\x80'  # write
+                 b'\xB8\x03\x00\x00\x00\xCD\x80'  # write motd
+                 b'\xB9\xA7\x00\x40\x00'       # ecx = list buffer
+                 b'\xBA\x05\x00\x00\x00'       # edx = 5 bytes
+                 b'\xB8\x03\x00\x00\x00\xCD\x80'  # write listing
                  b'\xB8\x01\x00\x00\x00\xCD\x80'  # getpid
                  b'\xB8\x02\x00\x00\x00\xCD\x80'  # yield
                  b'\x31\xC0\xCD\x80\xF4')        # exit; hlt fallback
-    init_code += path_text + b'Welcome to NovaOS'
+    init_code += path_text + b'Welcome to NovaOS' + b'/bin\0' + b'init\n'
     init_header = struct.pack('<5I', 0x4E4F5641, 1, 0x00400000, len(init_code), 0)
     init_image = init_header + init_code
     node_table[4 * NODE_SIZE:5 * NODE_SIZE] = node(5, 4, 2, DATA_LBA + 1, len(init_image), 'init')

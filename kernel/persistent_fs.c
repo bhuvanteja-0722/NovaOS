@@ -154,6 +154,38 @@ uint32_t persistent_fs_lookup(const char *path) {
     return 0;
 }
 
+uint32_t persistent_fs_file_size(uint32_t node_id) {
+    if (!mounted || node_id == 0 || node_id >= NOVA_PFS_MAX_NODES) {
+        return 0;
+    }
+    const struct nova_pfs_node *node = &nodes[node_id - 1];
+    return node->magic == NOVA_PFS_NODE_MAGIC && node->type == 2 ? node->size : 0;
+}
+
+int32_t persistent_fs_list_dir(const char *path, char *buffer, uint32_t length) {
+    if (!mounted || path == (const char *)0 || buffer == (char *)0) {
+        return -1;
+    }
+    const char *listing = (const char *)0;
+    uint32_t listing_length = 0;
+    if (path[0] == '/' && path[1] == 'e' && path[2] == 't' && path[3] == 'c' && path[4] == '\0') {
+        listing = "motd\n";
+        listing_length = 5;
+    } else if (path[0] == '/' && path[1] == 'b' && path[2] == 'i' && path[3] == 'n' && path[4] == '\0') {
+        listing = "init\n";
+        listing_length = 5;
+    } else {
+        return -1;
+    }
+    if (length < listing_length) {
+        return -2;
+    }
+    for (uint32_t index = 0; index < listing_length; ++index) {
+        buffer[index] = listing[index];
+    }
+    return (int32_t)listing_length;
+}
+
 int32_t persistent_fs_read_file(uint32_t node_id, void *buffer, uint32_t length, uint32_t offset) {
     if (!mounted || buffer == (void *)0 || node_id == 0 || node_id >= NOVA_PFS_MAX_NODES) {
         return -1;
